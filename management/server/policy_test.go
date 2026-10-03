@@ -1419,3 +1419,45 @@ func TestPolicyAccountPeersUpdate(t *testing.T) {
 	})
 
 }
+
+func TestSavePolicy_RejectsDropRuleTargetingCloudRole(t *testing.T) {
+	manager, _, account, _, _, _ := setupNetworkMapTest(t)
+
+	_, err := manager.SavePolicy(context.Background(), account.Id, userID, &types.Policy{
+		AccountID: account.Id,
+		Enabled:   true,
+		Rules: []*types.PolicyRule{
+			{
+				Enabled: true,
+				Sources: []string{"groupA"},
+				Action:  types.PolicyTrafficActionDrop,
+				DestinationResource: types.Resource{
+					ID:   "role1",
+					Type: types.ResourceTypeCloudIntegration,
+				},
+			},
+		},
+	}, true)
+	assert.Error(t, err)
+}
+
+func TestSavePolicy_AllowsAcceptRuleTargetingCloudRole(t *testing.T) {
+	manager, _, account, _, _, _ := setupNetworkMapTest(t)
+
+	_, err := manager.SavePolicy(context.Background(), account.Id, userID, &types.Policy{
+		AccountID: account.Id,
+		Enabled:   true,
+		Rules: []*types.PolicyRule{
+			{
+				Enabled: true,
+				Sources: []string{"groupA"},
+				Action:  types.PolicyTrafficActionAccept,
+				DestinationResource: types.Resource{
+					ID:   "role1",
+					Type: types.ResourceTypeCloudIntegration,
+				},
+			},
+		},
+	}, true)
+	assert.NoError(t, err)
+}

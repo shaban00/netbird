@@ -78,11 +78,23 @@ type ServerConfig struct {
 	PerAccountSupportedSyncMessageVersions map[string]int `yaml:"perAccountSupportedSyncMessageVersions,omitempty"`
 
 	AgentNetwork AgentNetworkConfig `yaml:"agentNetwork"`
+
+	CloudFederation CloudFederationConfig `yaml:"cloudFederation"`
 }
 
 // AgentNetworkConfig contains agent-network (LLM gateway) configuration.
 type AgentNetworkConfig struct {
 	PricingDefaultsFile string `yaml:"pricingDefaultsFile"`
+}
+
+// CloudFederationConfig contains OIDC issuer settings for cloud provider federation. Disabled by default.
+type CloudFederationConfig struct {
+	Enabled bool `yaml:"enabled"`
+	// Issuer is the deployment's complete federation issuer identity (the `iss` claim) — must end in
+	// "/federation", e.g. "https://netbird.example.com/federation". Required when Enabled
+	Issuer string `yaml:"issuer"`
+	// RotationIntervalHours overrides the signing key's default 30-day rotation interval when non-zero.
+	RotationIntervalHours int `yaml:"rotationIntervalHours"`
 }
 
 // TLSConfig contains TLS/HTTPS settings
@@ -732,6 +744,11 @@ func (c *CombinedConfig) ToManagementConfig() (*nbconfig.Config, error) {
 		PerAccountHighestSupportedSyncMessageVersion: c.Server.PerAccountSupportedSyncMessageVersions,
 		AgentNetwork: nbconfig.AgentNetwork{
 			PricingDefaultsFile: c.Server.AgentNetwork.PricingDefaultsFile,
+		},
+		CloudFederation: nbconfig.CloudFederationConfig{
+			Enabled:               c.Server.CloudFederation.Enabled,
+			Issuer:                c.Server.CloudFederation.Issuer,
+			RotationIntervalHours: c.Server.CloudFederation.RotationIntervalHours,
 		},
 	}, nil
 }

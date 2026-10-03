@@ -381,6 +381,30 @@ func TestGetPeerNetworkMapComponents_PolicyRelevance(t *testing.T) {
 		assert.ElementsMatch(t, []string{targetID}, peerIDSet(c.Peers))
 	})
 
+	t.Run("cloud_integration destination never becomes relevant to any peer's network map", func(t *testing.T) {
+		target := newPeer(targetID, 1)
+		nmd := newNMD(target)
+		addGroup(nmd, "g-src", targetID)
+		rule := &nmdata.PolicyRule{
+			Enabled: true,
+			Action:  string(nbtypes.PolicyTrafficActionAccept),
+			Sources: []string{"g-src"},
+			DestinationResource: nmdata.Resource{
+				ID:   "integration-1",
+				Type: string(nbtypes.ResourceTypeCloudIntegration),
+			},
+		}
+		nmd.Policies = []*nmdata.Policy{newPolicy("p-1", rule)}
+
+		c := compute(nmd, targetID)
+
+		assert.Empty(t, c.Policies, "a cloud_integration-destined policy must never be pushed to any peer's network map")
+		assert.ElementsMatch(t, []string{targetID}, peerIDSet(c.Peers))
+
+		nm := c.Calculate(context.Background())
+		assert.Empty(t, nm.FirewallRules, "a cloud_integration destination must never produce a FirewallRule")
+	})
+
 	t.Run("nil policy and rule entries tolerated", func(t *testing.T) {
 		target := newPeer(targetID, 1)
 		dst := newPeer("peer-dst", 2)

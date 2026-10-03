@@ -224,6 +224,16 @@ func NewNetworkResourceNotFoundError(resourceID string) error {
 	return Errorf(NotFound, "network resource: %s not found", resourceID)
 }
 
+// NewCloudAccessNotFoundError creates a new Error with NotFound type for a missing cloud access connection.
+func NewCloudAccessNotFoundError(id string) error {
+	return Errorf(NotFound, "cloud access: %s not found", id)
+}
+
+// NewCloudRoleNotFoundError creates a new Error with NotFound type for a missing cloud role.
+func NewCloudRoleNotFoundError(roleID string) error {
+	return Errorf(NotFound, "cloud role: %s not found", roleID)
+}
+
 // NewAgentNetworkProviderNotFoundError creates a new Error with NotFound type for a missing Agent Network provider.
 func NewAgentNetworkProviderNotFoundError(providerID string) error {
 	return Errorf(NotFound, "agent network provider: %s not found", providerID)

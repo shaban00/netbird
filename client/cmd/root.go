@@ -179,6 +179,9 @@ func init() {
 	rootCmd.AddCommand(debugCmd)
 	rootCmd.AddCommand(profileCmd)
 	rootCmd.AddCommand(exposeCmd)
+	rootCmd.AddCommand(awsCmd)
+	rootCmd.AddCommand(gcpCmd)
+	rootCmd.AddCommand(azureCmd)
 
 	networksCMD.AddCommand(routesListCmd)
 	networksCMD.AddCommand(routesSelectCmd, routesDeselectCmd)

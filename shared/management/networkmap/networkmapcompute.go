@@ -300,6 +300,9 @@ func (nmd *NetworkMapData) getPeersGroupsPoliciesRoutes(
 			if rule == nil || !rule.Enabled {
 				continue
 			}
+			if rule.DestinationResource.Type == string(types.ResourceTypeCloudIntegration) {
+				continue
+			}
 
 			if len(routeAccessControlGroups) > 0 {
 				for _, destGroupID := range rule.Destinations {

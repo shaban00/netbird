@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	nbcontext "github.com/netbirdio/netbird/management/server/context"
 	"github.com/netbirdio/netbird/management/server/mock_server"
@@ -134,6 +134,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: true,
 			expectedID:    accountID,
@@ -163,6 +164,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -192,6 +194,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -221,6 +224,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -250,6 +254,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -279,6 +284,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -308,9 +314,10 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				DashboardFeatures: &api.AccountDashboardFeatures{
 					AgentNetwork: br(true),
 				},
-				EmbeddedIdpEnabled: br(false),
-				LocalAuthDisabled:  br(false),
-				LocalMfaEnabled:    br(false),
+				EmbeddedIdpEnabled:     br(false),
+				LocalAuthDisabled:      br(false),
+				LocalMfaEnabled:        br(false),
+				CloudFederationEnabled: br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -349,9 +356,10 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				DashboardFeatures: &api.AccountDashboardFeatures{
 					AgentNetwork: br(true),
 				},
-				EmbeddedIdpEnabled: br(false),
-				LocalAuthDisabled:  br(false),
-				LocalMfaEnabled:    br(false),
+				EmbeddedIdpEnabled:     br(false),
+				LocalAuthDisabled:      br(false),
+				LocalMfaEnabled:        br(false),
+				CloudFederationEnabled: br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,
@@ -381,6 +389,7 @@ func TestAccounts_AccountsHandler(t *testing.T) {
 				EmbeddedIdpEnabled:              br(false),
 				LocalAuthDisabled:               br(false),
 				LocalMfaEnabled:                 br(false),
+				CloudFederationEnabled:          br(false),
 			},
 			expectedArray: false,
 			expectedID:    accountID,

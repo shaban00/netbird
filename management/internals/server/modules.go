@@ -2,12 +2,17 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"os"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/netbirdio/management-integrations/integrations"
 
+	"github.com/netbirdio/netbird/management/internals/modules/agentnetwork"
+	"github.com/netbirdio/netbird/management/internals/modules/cloudaccess"
+	cloudaccesstypes "github.com/netbirdio/netbird/management/internals/modules/cloudaccess/types"
 	"github.com/netbirdio/netbird/management/internals/modules/peers"
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/domain/manager"
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/proxy"
@@ -20,7 +25,12 @@ import (
 	recordsManager "github.com/netbirdio/netbird/management/internals/modules/zones/records/manager"
 	"github.com/netbirdio/netbird/management/server"
 	"github.com/netbirdio/netbird/management/server/account"
-	"github.com/netbirdio/netbird/management/internals/modules/agentnetwork"
+	"github.com/netbirdio/netbird/management/server/cloudauth"
+	"github.com/netbirdio/netbird/management/server/cloudfederation"
+	"github.com/netbirdio/netbird/management/server/cloudidentity"
+	"github.com/netbirdio/netbird/management/server/cloudidentity/awsprovider"
+	"github.com/netbirdio/netbird/management/server/cloudidentity/azureprovider"
+	"github.com/netbirdio/netbird/management/server/cloudidentity/gcpprovider"
 	"github.com/netbirdio/netbird/management/server/geolocation"
 	"github.com/netbirdio/netbird/management/server/groups"
 	"github.com/netbirdio/netbird/management/server/idp"
@@ -78,7 +88,7 @@ func (s *BaseServer) SettingsManager() settings.Manager {
 			idpConfig.LocalAuthDisabled = s.Config.EmbeddedIdP.LocalAuthDisabled
 		}
 
-		return settings.NewManager(s.Store(), s.UsersManager(), extraSettingsManager, s.PermissionsManager(), idpConfig)
+		return settings.NewManager(s.Store(), s.UsersManager(), extraSettingsManager, s.PermissionsManager(), idpConfig, s.Config.CloudFederation.Enabled)
 	})
 }
 
@@ -211,6 +221,66 @@ func (s *BaseServer) AgentNetworkManager() agentnetwork.Manager {
 			s.Config.ReverseProxy.AccessLogCleanupIntervalHours,
 		)
 		return mgr
+	})
+}
+
+func (s *BaseServer) CloudFederationIssuer() *cloudfederation.Issuer {
+	return Create(s, func() *cloudfederation.Issuer {
+		return cloudfederation.NewIssuer(s.Store(), cloudfederation.Config{
+			Enabled:          s.Config.CloudFederation.Enabled,
+			IssuerURL:        s.Config.CloudFederation.Issuer,
+			RotationInterval: time.Duration(s.Config.CloudFederation.RotationIntervalHours) * time.Hour,
+		})
+	})
+}
+
+func (s *BaseServer) FederationHandler() http.Handler {
+	if !s.Config.CloudFederation.Enabled {
+		return nil
+	}
+	return s.CloudFederationIssuer().Handler()
+}
+
+func (s *BaseServer) cloudIdentityProviders() map[string]cloudidentity.Provider {
+	return Create(s, func() map[string]cloudidentity.Provider {
+		awsClient := awsprovider.NewDefaultSTSClient(os.Getenv("NB_AWS_STS_REGION"))
+		gcpClient := gcpprovider.NewDefaultClient()
+		azureClient := azureprovider.NewDefaultClient()
+		return map[string]cloudidentity.Provider{
+			cloudaccesstypes.ProviderAWS:   awsprovider.NewProvider(s.CloudFederationIssuer(), awsClient),
+			cloudaccesstypes.ProviderGCP:   gcpprovider.NewProvider(s.CloudFederationIssuer(), gcpClient),
+			cloudaccesstypes.ProviderAzure: azureprovider.NewProvider(s.CloudFederationIssuer(), azureClient),
+		}
+	})
+}
+
+func (s *BaseServer) cloudAccessValidators() map[string]cloudaccess.Validator {
+	return Create(s, func() map[string]cloudaccess.Validator {
+		out := make(map[string]cloudaccess.Validator)
+		for name, p := range s.cloudIdentityProviders() {
+			if validator, ok := p.(cloudaccess.Validator); ok {
+				out[name] = validator
+			}
+		}
+		return out
+	})
+}
+
+func (s *BaseServer) CloudAccessManager() cloudaccess.AccessManager {
+	return Create(s, func() cloudaccess.AccessManager {
+		return cloudaccess.NewAccessManager(s.Store(), s.PermissionsManager(), s.AccountManager(), s.Config.CloudFederation.Enabled, s.Config.CloudFederation.Issuer)
+	})
+}
+
+func (s *BaseServer) CloudRoleManager() cloudaccess.RoleManager {
+	return Create(s, func() cloudaccess.RoleManager {
+		return cloudaccess.NewRoleManager(s.Store(), s.PermissionsManager(), s.AccountManager(), s.cloudAccessValidators(), s.Config.CloudFederation.Enabled, s.Config.CloudFederation.Issuer)
+	})
+}
+
+func (s *BaseServer) CloudCredentialsBroker() cloudauth.CredentialBroker {
+	return Create(s, func() cloudauth.CredentialBroker {
+		return cloudauth.NewCredentialBroker(s.Store(), s.AccountManager(), s.cloudIdentityProviders())
 	})
 }
 

@@ -134,6 +134,13 @@ service DaemonService {
   // session expiry deadline. The tunnel stays up the entire time.
   rpc WaitExtendAuthSession(WaitExtendAuthSessionRequest) returns (WaitExtendAuthSessionResponse) {}
 
+  // GetCloudCredentials requests short-lived credentials for a cloud integration
+  // from Management. Each call is fully re-authorized; nothing is cached.
+  rpc GetCloudCredentials(GetCloudCredentialsRequest) returns (GetCloudCredentialsResponse) {}
+
+  // ListCloudIntegrations returns the peer's authorized cloud integrations
+  rpc ListCloudIntegrations(ListCloudIntegrationsRequest) returns (ListCloudIntegrationsResponse) {}
+
   // DismissSessionWarning records that the user clicked "Dismiss" on the
   // T-WarningLead interactive notification, suppressing the auto-opened
   // SessionAboutToExpire dialog that would otherwise fire at
@@ -992,6 +999,44 @@ message WaitExtendAuthSessionRequest {
 // peer is not eligible for session extension.
 message WaitExtendAuthSessionResponse {
   google.protobuf.Timestamp sessionExpiresAt = 1;
+}
+
+// GetCloudCredentialsRequest identifies the integration to get credentials for.
+// Provider ("aws"/"gcp"/"azure") must match the integration's provider or the request is rejected.
+message GetCloudCredentialsRequest {
+  string integrationId = 1;
+  string provider = 2;
+}
+
+// GetCloudCredentialsResponse holds credentials if allowed, else a denial reason.
+// Mirrors Management's CloudCredentialsResponse for daemon IPC.
+message GetCloudCredentialsResponse {
+  bool allowed = 1;
+  string denyReason = 2;
+  map<string, string> credentials = 3;
+  google.protobuf.Timestamp expiresAt = 4;
+  string providerIdentity = 5;
+}
+
+// ListCloudIntegrationsRequest is empty; the peer is identified by its authenticated Management connection.
+message ListCloudIntegrationsRequest {}
+
+// ListCloudIntegrationsResponse mirrors Management's
+// ListCloudIntegrationsResponse for daemon IPC.
+message ListCloudIntegrationsResponse {
+  repeated CloudIntegrationSummary integrations = 1;
+}
+
+// CloudIntegrationSummary identifies an integration the peer can use.
+// provider_account_id and principal_name are non-secret; GCP needs them to
+// build its credential config client-side.
+message CloudIntegrationSummary {
+  string id = 1;
+  string name = 2;
+  string provider = 3;
+  string provider_account_id = 4;
+  string principal_name = 5;
+  int64 credential_lifetime_seconds = 6;
 }
 
 // DismissSessionWarningRequest is sent by the UI when the user clicks

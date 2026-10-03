@@ -20,6 +20,11 @@ type Client interface {
 	// Returns the new absolute deadline; zero time when the server reports the peer
 	// is not eligible for session extension.
 	ExtendAuthSession(sysInfo *system.Info, jwtToken string) (*proto.ExtendAuthSessionResponse, error)
+	// RequestCloudCredentials asks Management to authorize and issue
+	// short-lived cloud credentials for integrationID on behalf of this peer.
+	RequestCloudCredentials(integrationID, provider string) (*proto.CloudCredentialsResponse, error)
+	// ListCloudIntegrations returns every cloud integration this peer is authorized to request credentials for
+	ListCloudIntegrations() (*proto.ListCloudIntegrationsResponse, error)
 	GetDeviceAuthorizationFlow() (*proto.DeviceAuthorizationFlow, error)
 	GetPKCEAuthorizationFlow() (*proto.PKCEAuthorizationFlow, error)
 	GetServerURL() string

@@ -15,6 +15,8 @@ type MockClient struct {
 	RegisterFunc                   func(setupKey string, jwtToken string, info *system.Info, sshKey []byte, dnsLabels domain.List) (*proto.LoginResponse, error)
 	LoginFunc                      func(info *system.Info, sshKey []byte, dnsLabels domain.List) (*proto.LoginResponse, error)
 	ExtendAuthSessionFunc          func(info *system.Info, jwtToken string) (*proto.ExtendAuthSessionResponse, error)
+	RequestCloudCredentialsFunc    func(integrationID, provider string) (*proto.CloudCredentialsResponse, error)
+	ListCloudIntegrationsFunc      func() (*proto.ListCloudIntegrationsResponse, error)
 	GetDeviceAuthorizationFlowFunc func() (*proto.DeviceAuthorizationFlow, error)
 	GetPKCEAuthorizationFlowFunc   func() (*proto.PKCEAuthorizationFlow, error)
 	GetServerURLFunc               func() string
@@ -71,6 +73,20 @@ func (m *MockClient) ExtendAuthSession(info *system.Info, jwtToken string) (*pro
 		return nil, nil
 	}
 	return m.ExtendAuthSessionFunc(info, jwtToken)
+}
+
+func (m *MockClient) RequestCloudCredentials(integrationID, provider string) (*proto.CloudCredentialsResponse, error) {
+	if m.RequestCloudCredentialsFunc == nil {
+		return nil, nil
+	}
+	return m.RequestCloudCredentialsFunc(integrationID, provider)
+}
+
+func (m *MockClient) ListCloudIntegrations() (*proto.ListCloudIntegrationsResponse, error) {
+	if m.ListCloudIntegrationsFunc == nil {
+		return nil, nil
+	}
+	return m.ListCloudIntegrationsFunc()
 }
 
 func (m *MockClient) GetDeviceAuthorizationFlow() (*proto.DeviceAuthorizationFlow, error) {

@@ -403,6 +403,11 @@ components:
           description: Enables or disables TOTP multi-factor authentication for local users. Only applicable when the embedded identity provider is enabled.
           type: boolean
           example: false
+        cloud_federation_enabled:
+          description: Whether cloud identity federation (Cloud Access) is enabled on this deployment. Read-only, sourced from server configuration.
+          type: boolean
+          readOnly: true
+          example: false
         ipv6_enabled_groups:
           description: List of group IDs whose peers receive IPv6 overlay addresses. Peers not in any of these groups will not be allocated an IPv6 address. New accounts default to the All group.
           type: array
@@ -1990,7 +1995,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/NetworkResourceType'
         - type: string
-          enum: [ "peer" ]
+          enum: [ "peer", "cloud_integration" ]
           example: peer
     NetworkRequest:
       type: object
@@ -5320,6 +5325,176 @@ components:
         - id
         - input_per_1k
         - output_per_1k
+    CloudAccessStatus:
+      type: string
+      description: |
+        Connection health of a cloud access connection. There is no independent way to verify the provider-side trust object exists without actually exchanging a credential through it, so this is always a rollup: `connected` once at least one of this connection's cloud roles has validated successfully, `pending` otherwise.
+      enum: [ "pending", "connected" ]
+      example: "connected"
+    CloudAccess:
+      type: object
+      description: |
+        A configured connection between NetBird and a cloud provider account — for AWS, the IAM OIDC identity provider trusting this deployment's federation issuer; for GCP, the Workload Identity Pool federating into the project. Azure has no equivalent connection-level trust object — each CloudRole gets its own App Registration and Federated Credential, so creating a CloudAccess connection for Azure configures nothing by itself. One CloudAccess connection is deployed once per cloud account/project; individual roles within it are configured separately as CloudRoles.
+      properties:
+        id:
+          type: string
+          description: Cloud access connection ID.
+          example: "dakbbe33gajg009bvaqg"
+        name:
+          type: string
+          description: Display name shown in the dashboard.
+          example: "Production AWS"
+        provider:
+          type: string
+          description: Cloud provider identifier. "aws", "gcp", or "azure".
+          example: "aws"
+        provider_account_id:
+          type: string
+          description: "The provider's own account/project identifier. AWS: the 12-digit account ID. GCP: the numeric project number (not the project ID string). Azure: the Entra ID tenant (directory) ID."
+          example: "123456789012"
+        provider_project_id:
+          type: string
+          description: GCP only. The Project ID string (e.g. "my-project-123"), separate from provider_account_id's numeric project number.
+          example: "my-project-123"
+        status:
+          $ref: '#/components/schemas/CloudAccessStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - provider
+        - status
+    CloudAccessRequest:
+      type: object
+      description: Request body to create or update a cloud access connection.
+      properties:
+        name:
+          type: string
+          example: "Production AWS"
+        provider:
+          type: string
+          description: Cloud provider identifier. "aws", "gcp", or "azure".
+          example: "aws"
+        provider_account_id:
+          type: string
+          description: For AWS, the 12-digit AWS account ID. For GCP, the numeric GCP project number (not the project ID string). For Azure, the Entra ID tenant (directory) ID.
+          example: "123456789012"
+        provider_project_id:
+          type: string
+          description: GCP only, required for a GCP connection. Ignored for AWS and Azure
+          example: "my-project-123"
+      required:
+        - name
+        - provider
+    CloudRoleStatus:
+      type: string
+      description: |
+        Connection health of a cloud role. `pending` until the first validation run; `connected` once NetBird has confirmed it can exchange a federated identity for the configured IAM role; `error` if the most recent validation failed.
+      enum: [ "pending", "connected", "error" ]
+      example: "connected"
+    CloudRole:
+      type: object
+      description: |
+        An individual role a principal may assume, under a CloudAccess connection. NetBird policy decides whether a principal may obtain a federated identity for this role; the cloud provider's own IAM remains solely responsible for what that identity can do.
+      properties:
+        id:
+          type: string
+          description: Cloud role ID.
+          example: "dakbbe33gajg009bvaqg"
+        cloud_access_id:
+          type: string
+          description: The CloudAccess connection this role belongs to.
+          example: "dakcbe33gajg009bvaqg"
+        name:
+          type: string
+          description: Display name shown in the dashboard.
+          example: "Developer"
+        principal_name:
+          type: string
+          description: "The principal NetBird federates into. AWS: a bare IAM role name. GCP: the full service account email address. Azure: the Application (Client) ID of the role's dedicated App Registration. Administrator-controlled; never chosen by a client."
+          example: "NetBirdDeveloper"
+        principal_ref:
+          type: string
+          description: "The fully-resolved provider-native reference to this role's principal. AWS: the full IAM role ARN. GCP and Azure: identical to principal_name. Read-only."
+          example: "arn:aws:iam::123456789012:role/NetBirdDeveloper"
+        credential_lifetime_seconds:
+          type: integer
+          description: "Lifetime of credentials issued through this role, in seconds. Clamped server-side to a provider-specific floor (AWS: 900s; GCP: 600s) and a shared 3600s ceiling. Stored but has no effect for Azure — Entra fixes the resulting token's lifetime."
+          example: 900
+        status:
+          $ref: '#/components/schemas/CloudRoleStatus'
+        last_validated_at:
+          type: string
+          format: date-time
+          description: When NetBird last successfully validated the trust relationship with this role. Absent if never validated.
+        setup_mode:
+          type: string
+          enum: ["create", "import"]
+          description: Whether this role was set up via "create" or "import". Set once at creation, never changed afterward. Absent for a role created before this field existed.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - cloud_access_id
+        - name
+        - status
+    CloudRoleRequest:
+      type: object
+      description: Request body to create or update a cloud role.
+      properties:
+        name:
+          type: string
+          example: "Developer"
+        principal_name:
+          type: string
+          description: "The principal NetBird will federate into. AWS: a bare IAM role name (not the full ARN). GCP: the full service account email address. Azure: the Application (Client) ID of the role's dedicated App Registration."
+          example: "NetBirdDeveloper"
+        credential_lifetime_seconds:
+          type: integer
+          description: "Optional, in seconds. Defaults to the provider's own minimum (AWS: 900, GCP: 600). Server-clamped, capped at 3600. Stored but has no effect for Azure — Entra fixes the resulting token's lifetime."
+          example: 900
+        setup_mode:
+          type: string
+          enum: ["create", "import"]
+          description: Only meaningful at creation — ignored on update, since the choice it records can't change after the fact.
+      required:
+        - name
+    CloudDeployStep:
+      type: object
+      description: One self-contained, copy-paste-able CLI command (AWS CLI, gcloud or az, depending on the connection's provider).
+      properties:
+        title:
+          type: string
+          description: Short label for this step, e.g. "Create the OIDC identity provider".
+        description:
+          type: string
+          description: What this command does, and what to expect.
+        command:
+          type: string
+          description: The literal command to copy and run in a terminal already authenticated against the provider.
+      required:
+        - title
+        - description
+        - command
+    CloudDeployStepsResponse:
+      type: object
+      description: A step-by-step CLI walkthrough — each step is self-contained and can be run on its own before continuing.
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/CloudDeployStep'
+      required:
+        - steps
     AgentNetworkCatalogModel:
       type: object
       properties:
@@ -14324,6 +14499,496 @@ paths:
           "$ref": "#/components/responses/forbidden"
         '422':
           "$ref": "#/components/responses/validation_failed_simple"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access:
+    get:
+      summary: List cloud access connections
+      description: Returns every cloud access connection configured for the account.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      responses:
+        '200':
+          description: A JSON array of cloud access connections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CloudAccess'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+    post:
+      summary: Create a cloud access connection
+      description: |
+        Connects a new cloud provider account. This only configures the provider account NetBird's federation issuer will be trusted by (for Azure, nothing is configured yet — trust is established per role) — it grants no one access to anything by itself. Individual roles are configured afterward as CloudRoles under this connection; who may request a federated identity for a given role is decided entirely by existing NetBird policy, by referencing that role as a policy rule's destination.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      requestBody:
+        description: New cloud access connection request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudAccessRequest'
+      responses:
+        '200':
+          description: Cloud access connection created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudAccess'
+        '400':
+          "$ref": "#/components/responses/bad_request"
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}:
+    get:
+      summary: Get a cloud access connection
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A cloud access connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudAccess'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+    put:
+      summary: Update a cloud access connection
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudAccessRequest'
+      responses:
+        '200':
+          description: Cloud access connection updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudAccess'
+        '400':
+          "$ref": "#/components/responses/bad_request"
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+    delete:
+      summary: Delete a cloud access connection
+      description: Refused while any cloud role still exists under this connection — delete its roles first.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cloud access connection deleted
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '409':
+          "$ref": "#/components/responses/conflict"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-roles:
+    get:
+      summary: List cloud roles across every cloud access connection
+      description: Returns every cloud role configured for the account, across all cloud access connections.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      responses:
+        '200':
+          description: A JSON array of cloud roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CloudRole'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}/roles:
+    get:
+      summary: List cloud roles under a cloud access connection
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A JSON array of cloud roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CloudRole'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+    post:
+      summary: Create a cloud role under a cloud access connection
+      description: |
+        Configures which role NetBird may federate into within the parent connection's provider account — it grants no one access by itself. Who may actually request a federated identity for this role is decided entirely by existing NetBird policy, by referencing this role as a policy rule's destination.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: New cloud role request
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudRoleRequest'
+      responses:
+        '200':
+          description: Cloud role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudRole'
+        '400':
+          "$ref": "#/components/responses/bad_request"
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}/roles/{cloudRoleId}:
+    get:
+      summary: Get a cloud role
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A cloud role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudRole'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+    put:
+      summary: Update a cloud role
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudRoleRequest'
+      responses:
+        '200':
+          description: Cloud role updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudRole'
+        '400':
+          "$ref": "#/components/responses/bad_request"
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+    delete:
+      summary: Delete a cloud role
+      description: Refused while any policy rule still references this role as a destination — detach it from policy first.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cloud role deleted
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '409':
+          "$ref": "#/components/responses/conflict"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}/roles/{cloudRoleId}/validate:
+    post:
+      summary: Re-validate a cloud role
+      description: Attempts a real federated-identity exchange against the configured IAM role and updates status accordingly. Does not issue usable credentials to the caller — this only tests the trust relationship.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudRole'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}/roles/{cloudRoleId}/aws-deploy-script:
+    get:
+      summary: Render the step-by-step AWS CLI commands for a cloud role
+      description: Renders a step-by-step AWS CLI walkthrough for this role. mode=create (default) creates a new IAM role; mode=import merges NetBird's trust statement into an existing role, leaving its other trust relationships untouched.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: mode
+          required: false
+          schema:
+            type: string
+            enum: [ create, import ]
+            default: create
+      responses:
+        '200':
+          description: Rendered step-by-step AWS CLI commands
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeployStepsResponse'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}/roles/{cloudRoleId}/gcp-deploy-script:
+    get:
+      summary: Render the step-by-step gcloud commands for a cloud role
+      description: Renders a step-by-step gcloud CLI walkthrough for this role. mode=create (default) creates a new service account; mode=import binds NetBird's IAM policy to an existing one.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: mode
+          required: false
+          schema:
+            type: string
+            enum: [ create, import ]
+            default: create
+      responses:
+        '200':
+          description: Rendered step-by-step gcloud commands
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeployStepsResponse'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
+        '500':
+          "$ref": "#/components/responses/internal_error"
+  /api/cloud-access/{cloudAccessId}/roles/{cloudRoleId}/azure-deploy-script:
+    get:
+      summary: Render the step-by-step az commands for a cloud role
+      description: Renders a step-by-step Azure CLI (az) walkthrough for this role. mode=create (default) creates a new App Registration; mode=import adds a Federated Credential to an existing one.
+      tags: [ Cloud Access ]
+      security:
+        - BearerAuth: [ ]
+        - TokenAuth: [ ]
+      parameters:
+        - in: path
+          name: cloudAccessId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cloudRoleId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: mode
+          required: false
+          schema:
+            type: string
+            enum: [ create, import ]
+            default: create
+      responses:
+        '200':
+          description: Rendered step-by-step az commands
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeployStepsResponse'
+        '401':
+          "$ref": "#/components/responses/requires_authentication"
+        '403':
+          "$ref": "#/components/responses/forbidden"
+        '404':
+          "$ref": "#/components/responses/not_found"
         '500':
           "$ref": "#/components/responses/internal_error"
   /api/agent-network/providers:

@@ -12,6 +12,7 @@ import (
 
 	nbdns "github.com/netbirdio/netbird/dns"
 	agentNetworkTypes "github.com/netbirdio/netbird/management/internals/modules/agentnetwork/types"
+	cloudAccessTypes "github.com/netbirdio/netbird/management/internals/modules/cloudaccess/types"
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/accesslogs"
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/domain"
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/proxy"
@@ -19,6 +20,7 @@ import (
 	"github.com/netbirdio/netbird/management/internals/modules/zones"
 	"github.com/netbirdio/netbird/management/internals/modules/zones/records"
 	"github.com/netbirdio/netbird/management/internals/shared/db"
+	issuerTypes "github.com/netbirdio/netbird/management/server/cloudfederation/types"
 	resourceTypes "github.com/netbirdio/netbird/management/server/networks/resources/types"
 	routerTypes "github.com/netbirdio/netbird/management/server/networks/routers/types"
 	networkTypes "github.com/netbirdio/netbird/management/server/networks/types"
@@ -89,6 +91,7 @@ func NewSqlStore(ctx context.Context, conn *db.Conn, metrics telemetry.AppMetric
 		&agentNetworkTypes.Consumption{}, &agentNetworkTypes.AccountBudgetRule{},
 		&agentNetworkTypes.AgentNetworkAccessLog{}, &agentNetworkTypes.AgentNetworkAccessLogGroup{},
 		&agentNetworkTypes.AgentNetworkUsage{}, &agentNetworkTypes.AgentNetworkUsageGroup{},
+		&cloudAccessTypes.CloudAccess{}, &cloudAccessTypes.CloudRole{}, &issuerTypes.SigningKey{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("auto migratePreAuto: %w", err)
