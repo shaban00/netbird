@@ -147,3 +147,12 @@ server:
   #   # is re-read periodically (mtime poll). An explicitly configured path that
   #   # fails to load fails startup; runtime reload errors keep the previous table.
   #   pricingDefaultsFile: "pricing.yaml"
+
+  # Cloud identity federation settings (optional, disabled by default)
+  # cloudFederation:
+  #   enabled: true
+  #   # Must be reachable over HTTPS from the cloud provider's side, and
+  #   # must end in "/federation" — that's the exact path the discovery
+  #   # and JWKS handlers are mounted at, not just this deployment's domain.
+  #   issuer: "https://netbird.example.com/federation"
+  #   rotationIntervalHours: 720  # optional, defaults to 30 days

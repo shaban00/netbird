@@ -98,6 +98,81 @@ func (e AgentNetworkManagedProxyState) Valid() bool {
 	}
 }
 
+// Defines values for CloudAccessStatus.
+const (
+	CloudAccessStatusConnected CloudAccessStatus = "connected"
+	CloudAccessStatusPending   CloudAccessStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the CloudAccessStatus enum.
+func (e CloudAccessStatus) Valid() bool {
+	switch e {
+	case CloudAccessStatusConnected:
+		return true
+	case CloudAccessStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CloudRoleSetupMode.
+const (
+	CloudRoleSetupModeCreate CloudRoleSetupMode = "create"
+	CloudRoleSetupModeImport CloudRoleSetupMode = "import"
+)
+
+// Valid indicates whether the value is a known member of the CloudRoleSetupMode enum.
+func (e CloudRoleSetupMode) Valid() bool {
+	switch e {
+	case CloudRoleSetupModeCreate:
+		return true
+	case CloudRoleSetupModeImport:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CloudRoleRequestSetupMode.
+const (
+	CloudRoleRequestSetupModeCreate CloudRoleRequestSetupMode = "create"
+	CloudRoleRequestSetupModeImport CloudRoleRequestSetupMode = "import"
+)
+
+// Valid indicates whether the value is a known member of the CloudRoleRequestSetupMode enum.
+func (e CloudRoleRequestSetupMode) Valid() bool {
+	switch e {
+	case CloudRoleRequestSetupModeCreate:
+		return true
+	case CloudRoleRequestSetupModeImport:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CloudRoleStatus.
+const (
+	CloudRoleStatusConnected CloudRoleStatus = "connected"
+	CloudRoleStatusError     CloudRoleStatus = "error"
+	CloudRoleStatusPending   CloudRoleStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the CloudRoleStatus enum.
+func (e CloudRoleStatus) Valid() bool {
+	switch e {
+	case CloudRoleStatusConnected:
+		return true
+	case CloudRoleStatusError:
+		return true
+	case CloudRoleStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateAzureIntegrationRequestHost.
 const (
 	CreateAzureIntegrationRequestHostMicrosoftCom CreateAzureIntegrationRequestHost = "microsoft.com"
@@ -958,15 +1033,18 @@ func (e ProxyClusterType) Valid() bool {
 
 // Defines values for ResourceType.
 const (
-	ResourceTypeDomain ResourceType = "domain"
-	ResourceTypeHost   ResourceType = "host"
-	ResourceTypePeer   ResourceType = "peer"
-	ResourceTypeSubnet ResourceType = "subnet"
+	ResourceTypeCloudIntegration ResourceType = "cloud_integration"
+	ResourceTypeDomain           ResourceType = "domain"
+	ResourceTypeHost             ResourceType = "host"
+	ResourceTypePeer             ResourceType = "peer"
+	ResourceTypeSubnet           ResourceType = "subnet"
 )
 
 // Valid indicates whether the value is a known member of the ResourceType enum.
 func (e ResourceType) Valid() bool {
 	switch e {
+	case ResourceTypeCloudIntegration:
+		return true
 	case ResourceTypeDomain:
 		return true
 	case ResourceTypeHost:
@@ -1358,6 +1436,60 @@ func (e GetApiAgentNetworkUsageOverviewParamsGranularity) Valid() bool {
 	}
 }
 
+// Defines values for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode.
+const (
+	GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsModeCreate GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode = "create"
+	GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsModeImport GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode = "import"
+)
+
+// Valid indicates whether the value is a known member of the GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode enum.
+func (e GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode) Valid() bool {
+	switch e {
+	case GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsModeCreate:
+		return true
+	case GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsModeImport:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode.
+const (
+	GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsModeCreate GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode = "create"
+	GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsModeImport GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode = "import"
+)
+
+// Valid indicates whether the value is a known member of the GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode enum.
+func (e GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode) Valid() bool {
+	switch e {
+	case GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsModeCreate:
+		return true
+	case GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsModeImport:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode.
+const (
+	GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsModeCreate GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode = "create"
+	GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsModeImport GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode = "import"
+)
+
+// Valid indicates whether the value is a known member of the GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode enum.
+func (e GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode) Valid() bool {
+	switch e {
+	case GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsModeCreate:
+		return true
+	case GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsModeImport:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetApiEventsNetworkTrafficParamsType.
 const (
 	GetApiEventsNetworkTrafficParamsTypeTYPEDROP    GetApiEventsNetworkTrafficParamsType = "TYPE_DROP"
@@ -1682,6 +1814,9 @@ type AccountSettings struct {
 
 	// AutoUpdateVersion Set Clients auto-update version. "latest", "disabled", or a specific version (e.g "0.50.1")
 	AutoUpdateVersion *string `json:"auto_update_version,omitempty"`
+
+	// CloudFederationEnabled Whether cloud identity federation (Cloud Access) is enabled on this deployment. Read-only, sourced from server configuration.
+	CloudFederationEnabled *bool `json:"cloud_federation_enabled,omitempty"`
 
 	// DashboardFeatures Per-account dashboard section visibility overrides. Omitted keys follow the default dashboard behavior.
 	DashboardFeatures *AccountDashboardFeatures `json:"dashboard_features,omitempty"`
@@ -2741,6 +2876,118 @@ type City struct {
 
 // CityName Commonly used English name of the city
 type CityName = string
+
+// CloudAccess A configured connection between NetBird and a cloud provider account — for AWS, the IAM OIDC identity provider trusting this deployment's federation issuer; for GCP, the Workload Identity Pool federating into the project. Azure has no equivalent connection-level trust object — each CloudRole gets its own App Registration and Federated Credential, so creating a CloudAccess connection for Azure configures nothing by itself. One CloudAccess connection is deployed once per cloud account/project; individual roles within it are configured separately as CloudRoles.
+type CloudAccess struct {
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// Id Cloud access connection ID.
+	Id string `json:"id"`
+
+	// Name Display name shown in the dashboard.
+	Name string `json:"name"`
+
+	// Provider Cloud provider identifier. "aws", "gcp", or "azure".
+	Provider string `json:"provider"`
+
+	// ProviderAccountId The provider's own account/project identifier. AWS: the 12-digit account ID. GCP: the numeric project number (not the project ID string). Azure: the Entra ID tenant (directory) ID.
+	ProviderAccountId *string `json:"provider_account_id,omitempty"`
+
+	// ProviderProjectId GCP only. The Project ID string (e.g. "my-project-123"), separate from provider_account_id's numeric project number.
+	ProviderProjectId *string `json:"provider_project_id,omitempty"`
+
+	// Status Connection health of a cloud access connection. There is no independent way to verify the provider-side trust object exists without actually exchanging a credential through it, so this is always a rollup: `connected` once at least one of this connection's cloud roles has validated successfully, `pending` otherwise.
+	Status    CloudAccessStatus `json:"status"`
+	UpdatedAt *time.Time        `json:"updated_at,omitempty"`
+}
+
+// CloudAccessRequest Request body to create or update a cloud access connection.
+type CloudAccessRequest struct {
+	Name string `json:"name"`
+
+	// Provider Cloud provider identifier. "aws", "gcp", or "azure".
+	Provider string `json:"provider"`
+
+	// ProviderAccountId For AWS, the 12-digit AWS account ID. For GCP, the numeric GCP project number (not the project ID string). For Azure, the Entra ID tenant (directory) ID.
+	ProviderAccountId *string `json:"provider_account_id,omitempty"`
+
+	// ProviderProjectId GCP only, required for a GCP connection. Ignored for AWS and Azure
+	ProviderProjectId *string `json:"provider_project_id,omitempty"`
+}
+
+// CloudAccessStatus Connection health of a cloud access connection. There is no independent way to verify the provider-side trust object exists without actually exchanging a credential through it, so this is always a rollup: `connected` once at least one of this connection's cloud roles has validated successfully, `pending` otherwise.
+type CloudAccessStatus string
+
+// CloudDeployStep One self-contained, copy-paste-able CLI command (AWS CLI, gcloud or az, depending on the connection's provider).
+type CloudDeployStep struct {
+	// Command The literal command to copy and run in a terminal already authenticated against the provider.
+	Command string `json:"command"`
+
+	// Description What this command does, and what to expect.
+	Description string `json:"description"`
+
+	// Title Short label for this step, e.g. "Create the OIDC identity provider".
+	Title string `json:"title"`
+}
+
+// CloudDeployStepsResponse A step-by-step CLI walkthrough — each step is self-contained and can be run on its own before continuing.
+type CloudDeployStepsResponse struct {
+	Steps []CloudDeployStep `json:"steps"`
+}
+
+// CloudRole An individual role a principal may assume, under a CloudAccess connection. NetBird policy decides whether a principal may obtain a federated identity for this role; the cloud provider's own IAM remains solely responsible for what that identity can do.
+type CloudRole struct {
+	// CloudAccessId The CloudAccess connection this role belongs to.
+	CloudAccessId string     `json:"cloud_access_id"`
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+
+	// CredentialLifetimeSeconds Lifetime of credentials issued through this role, in seconds. Clamped server-side to a provider-specific floor (AWS: 900s; GCP: 600s) and a shared 3600s ceiling. Stored but has no effect for Azure — Entra fixes the resulting token's lifetime.
+	CredentialLifetimeSeconds *int `json:"credential_lifetime_seconds,omitempty"`
+
+	// Id Cloud role ID.
+	Id string `json:"id"`
+
+	// LastValidatedAt When NetBird last successfully validated the trust relationship with this role. Absent if never validated.
+	LastValidatedAt *time.Time `json:"last_validated_at,omitempty"`
+
+	// Name Display name shown in the dashboard.
+	Name string `json:"name"`
+
+	// PrincipalName The principal NetBird federates into. AWS: a bare IAM role name. GCP: the full service account email address. Azure: the Application (Client) ID of the role's dedicated App Registration. Administrator-controlled; never chosen by a client.
+	PrincipalName *string `json:"principal_name,omitempty"`
+
+	// PrincipalRef The fully-resolved provider-native reference to this role's principal. AWS: the full IAM role ARN. GCP and Azure: identical to principal_name. Read-only.
+	PrincipalRef *string `json:"principal_ref,omitempty"`
+
+	// SetupMode Whether this role was set up via "create" or "import". Set once at creation, never changed afterward. Absent for a role created before this field existed.
+	SetupMode *CloudRoleSetupMode `json:"setup_mode,omitempty"`
+
+	// Status Connection health of a cloud role. `pending` until the first validation run; `connected` once NetBird has confirmed it can exchange a federated identity for the configured IAM role; `error` if the most recent validation failed.
+	Status    CloudRoleStatus `json:"status"`
+	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
+}
+
+// CloudRoleSetupMode Whether this role was set up via "create" or "import". Set once at creation, never changed afterward. Absent for a role created before this field existed.
+type CloudRoleSetupMode string
+
+// CloudRoleRequest Request body to create or update a cloud role.
+type CloudRoleRequest struct {
+	// CredentialLifetimeSeconds Optional, in seconds. Defaults to the provider's own minimum (AWS: 900, GCP: 600). Server-clamped, capped at 3600. Stored but has no effect for Azure — Entra fixes the resulting token's lifetime.
+	CredentialLifetimeSeconds *int   `json:"credential_lifetime_seconds,omitempty"`
+	Name                      string `json:"name"`
+
+	// PrincipalName The principal NetBird will federate into. AWS: a bare IAM role name (not the full ARN). GCP: the full service account email address. Azure: the Application (Client) ID of the role's dedicated App Registration.
+	PrincipalName *string `json:"principal_name,omitempty"`
+
+	// SetupMode Only meaningful at creation — ignored on update, since the choice it records can't change after the fact.
+	SetupMode *CloudRoleRequestSetupMode `json:"setup_mode,omitempty"`
+}
+
+// CloudRoleRequestSetupMode Only meaningful at creation — ignored on update, since the choice it records can't change after the fact.
+type CloudRoleRequestSetupMode string
+
+// CloudRoleStatus Connection health of a cloud role. `pending` until the first validation run; `connected` once NetBird has confirmed it can exchange a federated identity for the configured IAM role; `error` if the most recent validation failed.
+type CloudRoleStatus string
 
 // Country Describe country geographical location information
 type Country struct {
@@ -6104,6 +6351,30 @@ type GetApiAgentNetworkUsageOverviewParams struct {
 // GetApiAgentNetworkUsageOverviewParamsGranularity defines parameters for GetApiAgentNetworkUsageOverview.
 type GetApiAgentNetworkUsageOverviewParamsGranularity string
 
+// GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParams defines parameters for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScript.
+type GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParams struct {
+	Mode *GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode `form:"mode,omitempty" json:"mode,omitempty"`
+}
+
+// GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode defines parameters for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScript.
+type GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAwsDeployScriptParamsMode string
+
+// GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParams defines parameters for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScript.
+type GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParams struct {
+	Mode *GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode `form:"mode,omitempty" json:"mode,omitempty"`
+}
+
+// GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode defines parameters for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScript.
+type GetApiCloudAccessCloudAccessIdRolesCloudRoleIdAzureDeployScriptParamsMode string
+
+// GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParams defines parameters for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScript.
+type GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParams struct {
+	Mode *GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode `form:"mode,omitempty" json:"mode,omitempty"`
+}
+
+// GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode defines parameters for GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScript.
+type GetApiCloudAccessCloudAccessIdRolesCloudRoleIdGcpDeployScriptParamsMode string
+
 // GetApiEventsNetworkTrafficParams defines parameters for GetApiEventsNetworkTraffic.
 type GetApiEventsNetworkTrafficParams struct {
 	// Page Page number
@@ -6340,6 +6611,18 @@ type PostApiAgentNetworkSettingsJSONRequestBody = AgentNetworkSettingsCreateRequ
 
 // PutApiAgentNetworkSettingsJSONRequestBody defines body for PutApiAgentNetworkSettings for application/json ContentType.
 type PutApiAgentNetworkSettingsJSONRequestBody = AgentNetworkSettingsRequest
+
+// PostApiCloudAccessJSONRequestBody defines body for PostApiCloudAccess for application/json ContentType.
+type PostApiCloudAccessJSONRequestBody = CloudAccessRequest
+
+// PutApiCloudAccessCloudAccessIdJSONRequestBody defines body for PutApiCloudAccessCloudAccessId for application/json ContentType.
+type PutApiCloudAccessCloudAccessIdJSONRequestBody = CloudAccessRequest
+
+// PostApiCloudAccessCloudAccessIdRolesJSONRequestBody defines body for PostApiCloudAccessCloudAccessIdRoles for application/json ContentType.
+type PostApiCloudAccessCloudAccessIdRolesJSONRequestBody = CloudRoleRequest
+
+// PutApiCloudAccessCloudAccessIdRolesCloudRoleIdJSONRequestBody defines body for PutApiCloudAccessCloudAccessIdRolesCloudRoleId for application/json ContentType.
+type PutApiCloudAccessCloudAccessIdRolesCloudRoleIdJSONRequestBody = CloudRoleRequest
 
 // PostApiDnsNameserversJSONRequestBody defines body for PostApiDnsNameservers for application/json ContentType.
 type PostApiDnsNameserversJSONRequestBody = NameserverGroupRequest

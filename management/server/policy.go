@@ -207,6 +207,10 @@ func validatePolicy(ctx context.Context, transaction store.Store, accountID stri
 			ruleCopy.PolicyID = policy.ID
 		}
 
+		if ruleCopy.Action == types.PolicyTrafficActionDrop && ruleCopy.DestinationResource.Type == types.ResourceTypeCloudIntegration {
+			return nil, status.Errorf(status.InvalidArgument, "a Drop rule cannot target a cloud role: cloud access is evaluated as an allow-list only, so this rule would never apply")
+		}
+
 		ruleCopy.Sources = getValidGroupIDs(groups, ruleCopy.Sources)
 		ruleCopy.Destinations = getValidGroupIDs(groups, ruleCopy.Destinations)
 		policy.Rules[i] = ruleCopy

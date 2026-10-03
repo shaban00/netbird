@@ -38,6 +38,8 @@ import (
 	"github.com/netbirdio/netbird/util/crypt"
 
 	agentNetworkTypes "github.com/netbirdio/netbird/management/internals/modules/agentnetwork/types"
+	cloudAccessTypes "github.com/netbirdio/netbird/management/internals/modules/cloudaccess/types"
+	issuerTypes "github.com/netbirdio/netbird/management/server/cloudfederation/types"
 	"github.com/netbirdio/netbird/management/server/migration"
 	resourceTypes "github.com/netbirdio/netbird/management/server/networks/resources/types"
 	routerTypes "github.com/netbirdio/netbird/management/server/networks/routers/types"
@@ -352,6 +354,24 @@ type Store interface {
 	GetAgentNetworkMetrics(ctx context.Context) (AgentNetworkMetrics, error)
 
 	GetRoutingPeerNetworks(ctx context.Context, accountID, peerID string) ([]string, error)
+
+	// Cloud federation OIDC issuer signing-key persistence.
+	GetActiveCloudFederationSigningKey(ctx context.Context, lockStrength LockingStrength) (*issuerTypes.SigningKey, error)
+	GetCloudFederationJWKSKeys(ctx context.Context) ([]*issuerTypes.SigningKey, error)
+	SaveCloudFederationSigningKey(ctx context.Context, key *issuerTypes.SigningKey) error
+
+	// Cloud provider persistence.
+	GetAccountCloudAccess(ctx context.Context, lockStrength LockingStrength, accountID string) ([]*cloudAccessTypes.CloudAccess, error)
+	GetCloudAccessByID(ctx context.Context, lockStrength LockingStrength, accountID, cloudAccessID string) (*cloudAccessTypes.CloudAccess, error)
+	SaveCloudAccess(ctx context.Context, access *cloudAccessTypes.CloudAccess) error
+	DeleteCloudAccess(ctx context.Context, accountID, cloudAccessID string) error
+
+	// Cloud role persistence.
+	GetAccountCloudRoles(ctx context.Context, lockStrength LockingStrength, accountID string) ([]*cloudAccessTypes.CloudRole, error)
+	GetCloudRolesByCloudAccessID(ctx context.Context, lockStrength LockingStrength, accountID, cloudAccessID string) ([]*cloudAccessTypes.CloudRole, error)
+	GetCloudRoleByID(ctx context.Context, lockStrength LockingStrength, accountID, roleID string) (*cloudAccessTypes.CloudRole, error)
+	SaveCloudRole(ctx context.Context, role *cloudAccessTypes.CloudRole) error
+	DeleteCloudRole(ctx context.Context, accountID, roleID string) error
 
 	// Agent Network persistence (providers, policies, guardrails, settings).
 	GetAllAgentNetworkProviders(ctx context.Context, lockStrength LockingStrength) ([]*agentNetworkTypes.Provider, error)

@@ -35,10 +35,12 @@ import (
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/domain"
 
 	agentNetworkTypes "github.com/netbirdio/netbird/management/internals/modules/agentnetwork/types"
+	cloudAccessTypes "github.com/netbirdio/netbird/management/internals/modules/cloudaccess/types"
 	"github.com/netbirdio/netbird/management/internals/modules/reverseproxy/proxy"
 	rpservice "github.com/netbirdio/netbird/management/internals/modules/reverseproxy/service"
 	"github.com/netbirdio/netbird/management/internals/modules/zones"
 	"github.com/netbirdio/netbird/management/internals/modules/zones/records"
+	issuerTypes "github.com/netbirdio/netbird/management/server/cloudfederation/types"
 	resourceTypes "github.com/netbirdio/netbird/management/server/networks/resources/types"
 	routerTypes "github.com/netbirdio/netbird/management/server/networks/routers/types"
 	networkTypes "github.com/netbirdio/netbird/management/server/networks/types"
@@ -143,6 +145,7 @@ func NewSqlStore(ctx context.Context, db *gorm.DB, storeEngine types.Engine, met
 		&agentNetworkTypes.Consumption{}, &agentNetworkTypes.AccountBudgetRule{},
 		&agentNetworkTypes.AgentNetworkAccessLog{}, &agentNetworkTypes.AgentNetworkAccessLogGroup{},
 		&agentNetworkTypes.AgentNetworkUsage{}, &agentNetworkTypes.AgentNetworkUsageGroup{},
+		&cloudAccessTypes.CloudAccess{}, &cloudAccessTypes.CloudRole{}, &issuerTypes.SigningKey{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("auto migratePreAuto: %w", err)

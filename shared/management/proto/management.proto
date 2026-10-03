@@ -60,6 +60,18 @@ service ManagementService {
   // EncryptedMessage of the response has a body of ExtendAuthSessionResponse.
   rpc ExtendAuthSession(EncryptedMessage) returns (EncryptedMessage) {}
 
+  // RequestCloudCredentials asks Management to authorize and issue short-lived credentials
+  // for a configured cloud integration on behalf of the calling peer.
+  // EncryptedMessage of the request has a body of CloudCredentialsRequest.
+  // EncryptedMessage of the response has a body of CloudCredentialsResponse.
+  rpc RequestCloudCredentials(EncryptedMessage) returns (EncryptedMessage) {}
+
+  // ListCloudIntegrations returns every cloud integration the calling peer
+  // is authorized to request credentials for
+  // EncryptedMessage of the request has a body of ListCloudIntegrationsRequest.
+  // EncryptedMessage of the response has a body of ListCloudIntegrationsResponse.
+  rpc ListCloudIntegrations(EncryptedMessage) returns (EncryptedMessage) {}
+
   // CreateExpose creates a temporary reverse proxy service for a peer
   rpc CreateExpose(EncryptedMessage) returns (EncryptedMessage) {}
 
@@ -309,6 +321,44 @@ message ExtendAuthSessionResponse {
   // enabled, so this carries a valid timestamp on the success path. The
   // 3-state encoding is documented here for symmetry with Login/Sync.
   google.protobuf.Timestamp sessionExpiresAt = 1;
+}
+
+// CloudCredentialsRequest asks for short-lived credentials for one
+// administrator-configured cloud integration.
+message CloudCredentialsRequest {
+  string integrationId = 1;
+  string provider = 2;
+}
+
+// CloudCredentialsResponse carries either short-lived provider credentials
+// (Allowed == true) or a safe denial reason (Allowed == false). Never both.
+message CloudCredentialsResponse {
+  bool allowed = 1;
+  string denyReason = 2;
+  map<string, string> credentials = 3;
+  google.protobuf.Timestamp expiresAt = 4;
+  string providerIdentity = 5;
+}
+
+// ListCloudIntegrationsRequest carries nothing — the peer's identity comes
+// entirely from this already-authenticated channel.
+message ListCloudIntegrationsRequest {
+}
+
+// CloudIntegrationSummary is the minimal, non-sensitive identification of
+// a cloud integration a peer is authorized to request credentials for.
+message CloudIntegrationSummary {
+  string id = 1;
+  string name = 2;
+  string provider = 3;
+  string provider_account_id = 4;
+  string principal_name = 5;
+  int64 credential_lifetime_seconds = 6;
+}
+
+// ListCloudIntegrationsResponse carries every cloud integration currently authorized for the calling peer.
+message ListCloudIntegrationsResponse {
+  repeated CloudIntegrationSummary integrations = 1;
 }
 
 message ServerKeyResponse {

@@ -436,6 +436,7 @@ func toAccountResponse(accountID string, settings *types.Settings, meta *types.A
 		EmbeddedIdpEnabled:              &settings.EmbeddedIdpEnabled,
 		LocalAuthDisabled:               &settings.LocalAuthDisabled,
 		LocalMfaEnabled:                 &settings.LocalMfaEnabled,
+		CloudFederationEnabled:          &settings.CloudFederationEnabled,
 	}
 
 	if settings.NetworkRange.IsValid() {

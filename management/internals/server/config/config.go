@@ -64,6 +64,9 @@ type Config struct {
 	// When set, Dex will be embedded in the management server and serve requests at /oauth2/
 	EmbeddedIdP *idp.EmbeddedIdPConfig
 
+	// CloudFederation configures NetBird's OIDC issuer for cloud federation, separate from the embedded IdP.
+	CloudFederation CloudFederationConfig
+
 	HighestSupportedSyncMessageVersion *int
 
 	PerAccountHighestSupportedSyncMessageVersion map[string]int
@@ -127,6 +130,17 @@ type HttpServerConfig struct {
 	ExtraAuthAudience string
 	// AuthCallbackDomain contains the callback domain
 	AuthCallbackURL string
+}
+
+// CloudFederationConfig configures NetBird's own OIDC issuer for cloud federation. Disabled by default
+type CloudFederationConfig struct {
+	Enabled bool
+	// Issuer is the federation issuer URL (the iss claim), ending in "/federation",
+	// e.g. "https://netbird.example.com/federation". Required when Enabled.
+	Issuer string
+	// RotationIntervalHours overrides the signing key's default 30-day
+	// rotation interval when non-zero.
+	RotationIntervalHours int
 }
 
 // Host represents a Netbird host (e.g. STUN, TURN, Signal)

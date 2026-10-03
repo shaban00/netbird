@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -140,7 +140,7 @@ func startManagement(t *testing.T) (*grpc.Server, net.Listener) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mgmtServer, err := nbgrpc.NewServer(config, accountManager, settingsMockManager, jobManager, secretsManager, nil, nil, mgmt.MockIntegratedValidator{}, networkMapController, nil, nil)
+	mgmtServer, err := nbgrpc.NewServer(config, accountManager, settingsMockManager, jobManager, secretsManager, nil, nil, mgmt.MockIntegratedValidator{}, networkMapController, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

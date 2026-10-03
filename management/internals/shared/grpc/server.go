@@ -23,11 +23,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/netbirdio/netbird/shared/management/client/common"
 	"github.com/netbirdio/netbird/shared/management/grpc"
 
 	"github.com/netbirdio/netbird/management/internals/controllers/network_map"
+	cloudaccesstypes "github.com/netbirdio/netbird/management/internals/modules/cloudaccess/types"
 	rpservice "github.com/netbirdio/netbird/management/internals/modules/reverseproxy/service"
 	nbconfig "github.com/netbirdio/netbird/management/internals/server/config"
 	"github.com/netbirdio/netbird/management/server/idp"
@@ -40,6 +42,7 @@ import (
 	"github.com/netbirdio/netbird/management/server/account"
 	"github.com/netbirdio/netbird/management/server/activity"
 	"github.com/netbirdio/netbird/management/server/auth"
+	"github.com/netbirdio/netbird/management/server/cloudauth"
 	nbContext "github.com/netbirdio/netbird/management/server/context"
 	nbpeer "github.com/netbirdio/netbird/management/server/peer"
 	"github.com/netbirdio/netbird/management/server/settings"
@@ -87,6 +90,10 @@ type Server struct {
 
 	reverseProxyManager rpservice.Manager
 	reverseProxyMu      sync.RWMutex
+
+	// cloudCredentialsBroker backs RequestCloudCredentials. If it's nil, requests are denied
+	cloudCredentialsBroker  cloudauth.CredentialBroker
+	cloudCredentialsLimiter *cloudCredentialsLimiter
 }
 
 // NewServer creates a new Management server
@@ -102,6 +109,7 @@ func NewServer(
 	networkMapController network_map.Controller,
 	oAuthConfigProvider idp.OAuthConfigProvider,
 	sessionStore *auth.SessionStore,
+	cloudCredentialsBroker cloudauth.CredentialBroker,
 ) (*Server, error) {
 	if appMetrics != nil {
 		// update gauge based on number of connected peers which is equal to open gRPC streams
@@ -145,6 +153,8 @@ func NewServer(
 		networkMapController:     networkMapController,
 		oAuthConfigProvider:      oAuthConfigProvider,
 		sessionStore:             sessionStore,
+		cloudCredentialsBroker:   cloudCredentialsBroker,
+		cloudCredentialsLimiter:  newCloudCredentialsLimiter(),
 
 		loginFilter: newLoginFilter(),
 
@@ -814,6 +824,120 @@ func (s *Server) Login(ctx context.Context, req *proto.EncryptedMessage) (*proto
 	}
 	log.WithContext(ctx).Debugf("Login took %s", time.Since(reqStart))
 
+	return &proto.EncryptedMessage{
+		WgPubKey: key.PublicKey().String(),
+		Body:     encryptedResp,
+	}, nil
+}
+
+// RequestCloudCredentials issues short-lived cloud credentials to the calling
+// peer if authorized. The peer is identified by its authenticated connection.
+func (s *Server) RequestCloudCredentials(ctx context.Context, req *proto.EncryptedMessage) (*proto.EncryptedMessage, error) {
+	credReq := &proto.CloudCredentialsRequest{}
+	peerKey, err := s.parseRequest(ctx, req, credReq)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = context.WithValue(ctx, nbContext.PeerIDKey, peerKey.String())
+
+	if !s.cloudCredentialsLimiter.allow(peerKey.String()) {
+		return nil, status.Errorf(codes.ResourceExhausted, "too many cloud credential requests")
+	}
+
+	resp := &proto.CloudCredentialsResponse{}
+	if s.cloudCredentialsBroker == nil {
+		resp.Allowed = false
+		resp.DenyReason = "cloud credentials are not configured"
+	} else {
+		outcome, err := s.cloudCredentialsBroker.RequestCredentials(ctx, peerKey.String(), credReq.GetIntegrationId(), credReq.GetProvider())
+		if err != nil {
+			log.WithContext(ctx).Warnf("failed requesting cloud credentials for peer %s: %s", peerKey, err)
+			return nil, status.Errorf(codes.Internal, "failed requesting cloud credentials")
+		}
+		resp.Allowed = outcome.Allowed
+		resp.DenyReason = outcome.DenyReason
+		if outcome.Allowed && outcome.Result != nil {
+			resp.Credentials = outcome.Result.Credentials
+			resp.ProviderIdentity = outcome.Result.ProviderIdentity
+			if !outcome.Result.ExpiresAt.IsZero() {
+				resp.ExpiresAt = timestamppb.New(outcome.Result.ExpiresAt)
+			}
+		}
+	}
+
+	key, err := s.secretsManager.GetWGKey()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed processing request")
+	}
+	encryptedResp, err := encryption.EncryptMessage(peerKey, key, resp)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed encrypting response")
+	}
+	return &proto.EncryptedMessage{
+		WgPubKey: key.PublicKey().String(),
+		Body:     encryptedResp,
+	}, nil
+}
+
+// ListCloudIntegrations returns the cloud roles the calling peer is authorized to use
+func (s *Server) ListCloudIntegrations(ctx context.Context, req *proto.EncryptedMessage) (*proto.EncryptedMessage, error) {
+	listReq := &proto.ListCloudIntegrationsRequest{}
+	peerKey, err := s.parseRequest(ctx, req, listReq)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = context.WithValue(ctx, nbContext.PeerIDKey, peerKey.String())
+
+	resp := &proto.ListCloudIntegrationsResponse{}
+	if s.cloudCredentialsBroker != nil {
+		roles, err := s.cloudCredentialsBroker.ListAuthorized(ctx, peerKey.String())
+		if err != nil {
+			log.WithContext(ctx).Warnf("failed listing authorized cloud integrations for peer %s: %s", peerKey, err)
+			return nil, status.Errorf(codes.Internal, "failed listing cloud integrations")
+		}
+		if len(roles) > 0 {
+			accountID, accErr := s.accountManager.GetAccountIDForPeerKey(ctx, peerKey.String())
+			if accErr != nil {
+				log.WithContext(ctx).Warnf("failed resolving account for peer %s while listing cloud integrations: %s", peerKey, accErr)
+				return nil, status.Errorf(codes.Internal, "failed listing cloud integrations")
+			}
+			access, accessErr := s.accountManager.GetStore().GetAccountCloudAccess(ctx, store.LockingStrengthNone, accountID)
+			if accessErr != nil {
+				log.WithContext(ctx).Warnf("failed listing cloud access connections for account %s: %s", accountID, accessErr)
+				return nil, status.Errorf(codes.Internal, "failed listing cloud integrations")
+			}
+			accessByID := make(map[string]*cloudaccesstypes.CloudAccess, len(access))
+			for _, a := range access {
+				accessByID[a.ID] = a
+			}
+
+			for _, role := range roles {
+				parent, ok := accessByID[role.CloudAccessID]
+				if !ok {
+					continue
+				}
+				resp.Integrations = append(resp.Integrations, &proto.CloudIntegrationSummary{
+					Id:                        role.ID,
+					Name:                      role.Name,
+					Provider:                  parent.Provider,
+					ProviderAccountId:         parent.ProviderAccountID,
+					PrincipalName:             role.PrincipalName,
+					CredentialLifetimeSeconds: role.CredentialLifetimeSeconds,
+				})
+			}
+		}
+	}
+
+	key, err := s.secretsManager.GetWGKey()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed processing request")
+	}
+	encryptedResp, err := encryption.EncryptMessage(peerKey, key, resp)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed encrypting response")
+	}
 	return &proto.EncryptedMessage{
 		WgPubKey: key.PublicKey().String(),
 		Body:     encryptedResp,

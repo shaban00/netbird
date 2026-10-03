@@ -698,6 +698,84 @@ func (c *GrpcClient) ExtendAuthSession(sysInfo *system.Info, jwtToken string) (*
 	return out, nil
 }
 
+// RequestCloudCredentials asks Management to authorize and issue
+// short-lived cloud credentials for integrationID on behalf of this peer.
+func (c *GrpcClient) RequestCloudCredentials(integrationID, provider string) (*proto.CloudCredentialsResponse, error) {
+	if !c.ready() {
+		return nil, errors.New(errMsgNoMgmtConnection)
+	}
+
+	serverKey, err := c.getServerPublicKey()
+	if err != nil {
+		return nil, err
+	}
+
+	reqBody, err := encryption.EncryptMessage(*serverKey, c.key, &proto.CloudCredentialsRequest{
+		IntegrationId: integrationID,
+		Provider:      provider,
+	})
+	if err != nil {
+		log.Errorf("failed to encrypt cloud credentials request: %s", err)
+		return nil, err
+	}
+
+	mgmCtx, cancel := context.WithTimeout(c.ctx, ConnectTimeout)
+	defer cancel()
+
+	resp, err := c.realClient.RequestCloudCredentials(mgmCtx, &proto.EncryptedMessage{
+		WgPubKey: c.key.PublicKey().String(),
+		Body:     reqBody,
+	})
+	if err != nil {
+		log.Errorf("failed to request cloud credentials from Management Service: %v", err)
+		return nil, err
+	}
+
+	out := &proto.CloudCredentialsResponse{}
+	if err := encryption.DecryptMessage(*serverKey, c.key, resp.Body, out); err != nil {
+		log.Errorf("failed to decrypt cloud credentials response: %s", err)
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListCloudIntegrations returns every cloud integration this peer is authorized to request credentials for
+func (c *GrpcClient) ListCloudIntegrations() (*proto.ListCloudIntegrationsResponse, error) {
+	if !c.ready() {
+		return nil, errors.New(errMsgNoMgmtConnection)
+	}
+
+	serverKey, err := c.getServerPublicKey()
+	if err != nil {
+		return nil, err
+	}
+
+	reqBody, err := encryption.EncryptMessage(*serverKey, c.key, &proto.ListCloudIntegrationsRequest{})
+	if err != nil {
+		log.Errorf("failed to encrypt list cloud integrations request: %s", err)
+		return nil, err
+	}
+
+	mgmCtx, cancel := context.WithTimeout(c.ctx, ConnectTimeout)
+	defer cancel()
+
+	resp, err := c.realClient.ListCloudIntegrations(mgmCtx, &proto.EncryptedMessage{
+		WgPubKey: c.key.PublicKey().String(),
+		Body:     reqBody,
+	})
+	if err != nil {
+		log.Errorf("failed to list cloud integrations from Management Service: %v", err)
+		return nil, err
+	}
+
+	out := &proto.ListCloudIntegrationsResponse{}
+	if err := encryption.DecryptMessage(*serverKey, c.key, resp.Body, out); err != nil {
+		log.Errorf("failed to decrypt list cloud integrations response: %s", err)
+		return nil, err
+	}
+	return out, nil
+}
+
 // GetDeviceAuthorizationFlow returns a device authorization flow information.
 // It also takes care of encrypting and decrypting messages.
 func (c *GrpcClient) GetDeviceAuthorizationFlow() (*proto.DeviceAuthorizationFlow, error) {

@@ -358,7 +358,7 @@ func setupServerHooks(servers *serverInstances, cfg *CombinedConfig) {
 					log.Infof("Signal server registered on port %s", cfg.Server.ListenAddress)
 				}
 
-				s.SetHandlerFunc(createCombinedHandler(grpcSrv, s.APIHandler(), s.IDPHandler(), servers.relaySrv, servers.metricsServer.Meter, cfg))
+				s.SetHandlerFunc(createCombinedHandler(grpcSrv, s.APIHandler(), s.IDPHandler(), s.FederationHandler(), servers.relaySrv, servers.metricsServer.Meter, cfg))
 				if servers.relaySrv != nil {
 					log.Infof("Relay WebSocket handler added (path: /relay)")
 				}
@@ -553,7 +553,7 @@ func createManagementServer(cfg *CombinedConfig, mgmtConfig *nbconfig.Config) (m
 }
 
 // createCombinedHandler creates an HTTP handler that multiplexes Management, Signal (via wsproxy), and Relay WebSocket traffic
-func createCombinedHandler(grpcServer *grpc.Server, httpHandler, idpHandler http.Handler, relaySrv *relayServer.Server, meter metric.Meter, cfg *CombinedConfig) http.Handler {
+func createCombinedHandler(grpcServer *grpc.Server, httpHandler, idpHandler, federationHandler http.Handler, relaySrv *relayServer.Server, meter metric.Meter, cfg *CombinedConfig) http.Handler {
 	wsProxy := wsproxyserver.New(grpcServer, wsproxyserver.WithOTelMeter(meter))
 
 	var relayAcceptFn func(conn listener.Conn)
@@ -591,6 +591,11 @@ func createCombinedHandler(grpcServer *grpc.Server, httpHandler, idpHandler http
 		// Embedded IdP (Dex)
 		case idpHandler != nil && strings.HasPrefix(r.URL.Path, "/oauth2"):
 			idpHandler.ServeHTTP(w, r)
+
+		// Cloud federation issuer (discovery + JWKS) — a distinct trust
+		// boundary from the embedded IdP above, never mounted under /oauth2.
+		case federationHandler != nil && strings.HasPrefix(r.URL.Path, "/federation"):
+			federationHandler.ServeHTTP(w, r)
 
 		// Management HTTP API (default)
 		default:

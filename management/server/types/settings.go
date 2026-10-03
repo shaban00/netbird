@@ -96,6 +96,9 @@ type Settings struct {
 	// LocalMfaEnabled indicates if TOTP MFA is enabled for local users.
 	// Only applicable when the embedded IDP is enabled.
 	LocalMfaEnabled bool
+
+	// CloudFederationEnabled indicates whether this deployment's cloud identity federation is enabled.
+	CloudFederationEnabled bool `gorm:"-"`
 }
 
 // Copy copies the Settings struct
@@ -127,6 +130,7 @@ func (s *Settings) Copy() *Settings {
 		EmbeddedIdpEnabled:              s.EmbeddedIdpEnabled,
 		LocalAuthDisabled:               s.LocalAuthDisabled,
 		LocalMfaEnabled:                 s.LocalMfaEnabled,
+		CloudFederationEnabled:          s.CloudFederationEnabled,
 	}
 	if s.Extra != nil {
 		settings.Extra = s.Extra.Copy()

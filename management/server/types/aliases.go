@@ -80,10 +80,11 @@ const (
 )
 
 const (
-	ResourceTypePeer   = sharedtypes.ResourceTypePeer
-	ResourceTypeDomain = sharedtypes.ResourceTypeDomain
-	ResourceTypeHost   = sharedtypes.ResourceTypeHost
-	ResourceTypeSubnet = sharedtypes.ResourceTypeSubnet
+	ResourceTypePeer             = sharedtypes.ResourceTypePeer
+	ResourceTypeDomain           = sharedtypes.ResourceTypeDomain
+	ResourceTypeHost             = sharedtypes.ResourceTypeHost
+	ResourceTypeSubnet           = sharedtypes.ResourceTypeSubnet
+	ResourceTypeCloudIntegration = sharedtypes.ResourceTypeCloudIntegration
 )
 
 const (

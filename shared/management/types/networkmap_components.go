@@ -225,6 +225,9 @@ func (c *NetworkMapComponents) getPeerConnectionResources(targetPeerID string) (
 			if rule == nil || !rule.Enabled {
 				continue
 			}
+			if rule.DestinationResource.Type == string(ResourceTypeCloudIntegration) {
+				continue
+			}
 
 			var sourcePeers, destinationPeers []*nmdata.Peer
 			var peerInSources, peerInDestinations bool

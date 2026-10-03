@@ -284,6 +284,31 @@ const (
 	// AgentNetworkSettingsDeleted indicates that a user deleted the Agent Network account settings, releasing the endpoint
 	AgentNetworkSettingsDeleted Activity = 142
 
+	// CloudCredentialRequested indicates that a peer requested short-lived cloud credentials for a cloud role
+	CloudCredentialRequested Activity = 148
+	// CloudAccessAllowed indicates that NetBird policy authorized a peer's request for cloud credentials
+	CloudAccessAllowed Activity = 149
+	// CloudAccessDenied indicates that NetBird policy denied a peer's request for cloud credentials
+	CloudAccessDenied Activity = 150
+	// CloudCredentialsIssued indicates that short-lived cloud credentials were issued to a peer following an allowed request
+	CloudCredentialsIssued Activity = 151
+	// CloudAccessCreated indicates that a user created a cloud access connection
+	CloudAccessCreated Activity = 152
+	// CloudAccessUpdated indicates that a user updated a cloud access connection
+	CloudAccessUpdated Activity = 153
+	// CloudAccessDeleted indicates that a user deleted a cloud access connection
+	CloudAccessDeleted Activity = 154
+	// CloudRoleCreated indicates that a user created a cloud role
+	CloudRoleCreated Activity = 155
+	// CloudRoleUpdated indicates that a user updated a cloud role
+	CloudRoleUpdated Activity = 156
+	// CloudRoleDeleted indicates that a user deleted a cloud role
+	CloudRoleDeleted Activity = 157
+	// CloudRoleValidationSucceeded indicates that a cloud role's federated-identity trust relationship validated successfully
+	CloudRoleValidationSucceeded Activity = 158
+	// CloudRoleValidationFailed indicates that a cloud role's federated-identity trust relationship failed validation
+	CloudRoleValidationFailed Activity = 159
+
 	AccountDeleted Activity = 99999
 )
 
@@ -457,6 +482,19 @@ var activityMap = map[Activity]Code{
 
 	AgentNetworkSettingsUpdated: {"Agent Network settings updated", "agent_network.settings.update"},
 	AgentNetworkSettingsDeleted: {"Agent Network settings deleted", "agent_network.settings.delete"},
+
+	CloudAccessCreated:           {"Cloud access created", "cloud_access.create"},
+	CloudAccessUpdated:           {"Cloud access updated", "cloud_access.update"},
+	CloudAccessDeleted:           {"Cloud access deleted", "cloud_access.delete"},
+	CloudRoleCreated:             {"Cloud role created", "cloud_role.create"},
+	CloudRoleUpdated:             {"Cloud role updated", "cloud_role.update"},
+	CloudRoleDeleted:             {"Cloud role deleted", "cloud_role.delete"},
+	CloudRoleValidationSucceeded: {"Cloud role validation succeeded", "cloud_role.validate.success"},
+	CloudRoleValidationFailed:    {"Cloud role validation failed", "cloud_role.validate.failure"},
+	CloudCredentialRequested:     {"Cloud credentials requested", "cloud_credentials.request"},
+	CloudAccessAllowed:           {"Cloud access allowed", "cloud_credentials.allow"},
+	CloudAccessDenied:            {"Cloud access denied", "cloud_credentials.deny"},
+	CloudCredentialsIssued:       {"Cloud credentials issued", "cloud_credentials.issue"},
 
 	AccountMetricsPushEnabled:  {"Account metrics push enabled", "account.setting.metrics.push.enable"},
 	AccountMetricsPushDisabled: {"Account metrics push disabled", "account.setting.metrics.push.disable"},

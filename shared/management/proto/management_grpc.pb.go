@@ -59,6 +59,16 @@ type ManagementServiceClient interface {
 	// EncryptedMessage of the request has a body of ExtendAuthSessionRequest.
 	// EncryptedMessage of the response has a body of ExtendAuthSessionResponse.
 	ExtendAuthSession(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error)
+	// RequestCloudCredentials asks Management to authorize and issue short-lived credentials
+	// for a configured cloud integration on behalf of the calling peer.
+	// EncryptedMessage of the request has a body of CloudCredentialsRequest.
+	// EncryptedMessage of the response has a body of CloudCredentialsResponse.
+	RequestCloudCredentials(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error)
+	// ListCloudIntegrations returns every cloud integration the calling peer
+	// is authorized to request credentials for
+	// EncryptedMessage of the request has a body of ListCloudIntegrationsRequest.
+	// EncryptedMessage of the response has a body of ListCloudIntegrationsResponse.
+	ListCloudIntegrations(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error)
 	// CreateExpose creates a temporary reverse proxy service for a peer
 	CreateExpose(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error)
 	// RenewExpose extends the TTL of an active expose session
@@ -210,6 +220,24 @@ func (c *managementServiceClient) ExtendAuthSession(ctx context.Context, in *Enc
 	return out, nil
 }
 
+func (c *managementServiceClient) RequestCloudCredentials(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error) {
+	out := new(EncryptedMessage)
+	err := c.cc.Invoke(ctx, "/management.ManagementService/RequestCloudCredentials", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *managementServiceClient) ListCloudIntegrations(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error) {
+	out := new(EncryptedMessage)
+	err := c.cc.Invoke(ctx, "/management.ManagementService/ListCloudIntegrations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *managementServiceClient) CreateExpose(ctx context.Context, in *EncryptedMessage, opts ...grpc.CallOption) (*EncryptedMessage, error) {
 	out := new(EncryptedMessage)
 	err := c.cc.Invoke(ctx, "/management.ManagementService/CreateExpose", in, out, opts...)
@@ -282,6 +310,16 @@ type ManagementServiceServer interface {
 	// EncryptedMessage of the request has a body of ExtendAuthSessionRequest.
 	// EncryptedMessage of the response has a body of ExtendAuthSessionResponse.
 	ExtendAuthSession(context.Context, *EncryptedMessage) (*EncryptedMessage, error)
+	// RequestCloudCredentials asks Management to authorize and issue short-lived credentials
+	// for a configured cloud integration on behalf of the calling peer.
+	// EncryptedMessage of the request has a body of CloudCredentialsRequest.
+	// EncryptedMessage of the response has a body of CloudCredentialsResponse.
+	RequestCloudCredentials(context.Context, *EncryptedMessage) (*EncryptedMessage, error)
+	// ListCloudIntegrations returns every cloud integration the calling peer
+	// is authorized to request credentials for
+	// EncryptedMessage of the request has a body of ListCloudIntegrationsRequest.
+	// EncryptedMessage of the response has a body of ListCloudIntegrationsResponse.
+	ListCloudIntegrations(context.Context, *EncryptedMessage) (*EncryptedMessage, error)
 	// CreateExpose creates a temporary reverse proxy service for a peer
 	CreateExpose(context.Context, *EncryptedMessage) (*EncryptedMessage, error)
 	// RenewExpose extends the TTL of an active expose session
@@ -324,6 +362,12 @@ func (UnimplementedManagementServiceServer) Job(ManagementService_JobServer) err
 }
 func (UnimplementedManagementServiceServer) ExtendAuthSession(context.Context, *EncryptedMessage) (*EncryptedMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExtendAuthSession not implemented")
+}
+func (UnimplementedManagementServiceServer) RequestCloudCredentials(context.Context, *EncryptedMessage) (*EncryptedMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestCloudCredentials not implemented")
+}
+func (UnimplementedManagementServiceServer) ListCloudIntegrations(context.Context, *EncryptedMessage) (*EncryptedMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCloudIntegrations not implemented")
 }
 func (UnimplementedManagementServiceServer) CreateExpose(context.Context, *EncryptedMessage) (*EncryptedMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateExpose not implemented")
@@ -538,6 +582,42 @@ func _ManagementService_ExtendAuthSession_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ManagementService_RequestCloudCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EncryptedMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServiceServer).RequestCloudCredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.ManagementService/RequestCloudCredentials",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServiceServer).RequestCloudCredentials(ctx, req.(*EncryptedMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ManagementService_ListCloudIntegrations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EncryptedMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ManagementServiceServer).ListCloudIntegrations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/management.ManagementService/ListCloudIntegrations",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ManagementServiceServer).ListCloudIntegrations(ctx, req.(*EncryptedMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ManagementService_CreateExpose_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EncryptedMessage)
 	if err := dec(in); err != nil {
@@ -630,6 +710,14 @@ var ManagementService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExtendAuthSession",
 			Handler:    _ManagementService_ExtendAuthSession_Handler,
+		},
+		{
+			MethodName: "RequestCloudCredentials",
+			Handler:    _ManagementService_RequestCloudCredentials_Handler,
+		},
+		{
+			MethodName: "ListCloudIntegrations",
+			Handler:    _ManagementService_ListCloudIntegrations_Handler,
 		},
 		{
 			MethodName: "CreateExpose",

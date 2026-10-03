@@ -36,20 +36,22 @@ type IdpConfig struct {
 }
 
 type managerImpl struct {
-	store                store.Store
-	extraSettingsManager extra_settings.Manager
-	userManager          users.Manager
-	permissionsManager   permissions.Manager
-	idpConfig            IdpConfig
+	store                  store.Store
+	extraSettingsManager   extra_settings.Manager
+	userManager            users.Manager
+	permissionsManager     permissions.Manager
+	idpConfig              IdpConfig
+	cloudFederationEnabled bool
 }
 
-func NewManager(store store.Store, userManager users.Manager, extraSettingsManager extra_settings.Manager, permissionsManager permissions.Manager, idpConfig IdpConfig) Manager {
+func NewManager(store store.Store, userManager users.Manager, extraSettingsManager extra_settings.Manager, permissionsManager permissions.Manager, idpConfig IdpConfig, cloudFederationEnabled bool) Manager {
 	return &managerImpl{
-		store:                store,
-		extraSettingsManager: extraSettingsManager,
-		userManager:          userManager,
-		permissionsManager:   permissionsManager,
-		idpConfig:            idpConfig,
+		store:                  store,
+		extraSettingsManager:   extraSettingsManager,
+		userManager:            userManager,
+		permissionsManager:     permissionsManager,
+		idpConfig:              idpConfig,
+		cloudFederationEnabled: cloudFederationEnabled,
 	}
 }
 
@@ -90,6 +92,7 @@ func (m *managerImpl) GetSettings(ctx context.Context, accountID, userID string)
 	// Fill in IdP-related runtime settings
 	settings.EmbeddedIdpEnabled = m.idpConfig.EmbeddedIdpEnabled
 	settings.LocalAuthDisabled = m.idpConfig.LocalAuthDisabled
+	settings.CloudFederationEnabled = m.cloudFederationEnabled
 
 	return settings, nil
 }
