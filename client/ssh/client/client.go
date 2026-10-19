@@ -281,6 +281,12 @@ type DialOptions struct {
 	NoBrowser          bool
 }
 
+// displayBanner prints server banners
+func displayBanner(message string) error {
+	_, err := fmt.Fprint(os.Stderr, message, "\r\n")
+	return err
+}
+
 // Dial connects to the given ssh server with specified options
 func Dial(ctx context.Context, addr, user string, opts DialOptions) (*Client, error) {
 	daemonAddr := opts.DaemonAddr
@@ -298,6 +304,7 @@ func Dial(ctx context.Context, addr, user string, opts DialOptions) (*Client, er
 		User:            user,
 		Timeout:         30 * time.Second,
 		HostKeyCallback: hostKeyCallback,
+		BannerCallback:  displayBanner,
 	}
 
 	if opts.IdentityFile != "" {

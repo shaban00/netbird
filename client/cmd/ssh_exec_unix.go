@@ -19,6 +19,7 @@ var (
 	sshExecShell      string
 	sshExecCommand    string
 	sshExecPTY        bool
+	sshExecTrace      bool
 )
 
 // sshExecCmd represents the hidden ssh exec subcommand for privilege dropping
@@ -37,6 +38,7 @@ func init() {
 	sshExecCmd.Flags().StringVar(&sshExecShell, "shell", "/bin/sh", "Shell to execute")
 	sshExecCmd.Flags().BoolVar(&sshExecPTY, "pty", false, "Request PTY (will fail as executor doesn't support PTY)")
 	sshExecCmd.Flags().StringVar(&sshExecCommand, "cmd", "", "Command to execute")
+	sshExecCmd.Flags().BoolVar(&sshExecTrace, "trace", false, "Trace commands via bash -x (ignored with --cmd)")
 
 	if err := sshExecCmd.MarkFlagRequired("uid"); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to mark uid flag as required: %v\n", err)
@@ -60,13 +62,14 @@ func runSSHExec(cmd *cobra.Command, _ []string) error {
 	}
 
 	config := sshserver.ExecutorConfig{
-		UID:        sshExecUID,
-		GID:        sshExecGID,
-		Groups:     groups,
-		WorkingDir: sshExecWorkingDir,
-		Shell:      sshExecShell,
-		Command:    sshExecCommand,
-		PTY:        sshExecPTY,
+		UID:           sshExecUID,
+		GID:           sshExecGID,
+		Groups:        groups,
+		WorkingDir:    sshExecWorkingDir,
+		Shell:         sshExecShell,
+		Command:       sshExecCommand,
+		PTY:           sshExecPTY,
+		TraceCommands: sshExecTrace,
 	}
 
 	privilegeDropper.ExecuteWithPrivilegeDrop(cmd.Context(), config)

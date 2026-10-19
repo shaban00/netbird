@@ -658,6 +658,8 @@ func createEngineConfig(key wgtypes.Key, config *profilemanager.Config, peerConf
 		EnableSSHLocalPortForwarding:  config.EnableSSHLocalPortForwarding,
 		EnableSSHRemotePortForwarding: config.EnableSSHRemotePortForwarding,
 		DisableSSHAuth:                config.DisableSSHAuth,
+		SSHSessionRecorder:            config.SSHSessionRecorder,
+		DisableRecorderBanner:         config.DisableRecorderBanner,
 		DNSRouteInterval:              config.DNSRouteInterval,
 
 		DisableClientRoutes: config.DisableClientRoutes,

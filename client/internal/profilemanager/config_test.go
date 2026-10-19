@@ -272,6 +272,68 @@ func TestUpdateConfigServerSSHAllowedNotSet(t *testing.T) {
 	}
 }
 
+func strPtr(v string) *string { return &v }
+
+func TestUpdateConfigSSHSessionRecorder(t *testing.T) {
+	t.Run("setting it alongside allow-server-ssh succeeds", func(t *testing.T) {
+		configPath := filepath.Join(t.TempDir(), "config.json")
+		require.NoError(t, os.WriteFile(configPath, []byte("{}"), 0600))
+
+		config, err := UpdateConfig(ConfigInput{
+			ConfigPath:         configPath,
+			ServerSSHAllowed:   util.True(),
+			SSHSessionRecorder: strPtr("100.64.0.5"),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "100.64.0.5", config.SSHSessionRecorder)
+	})
+
+	t.Run("setting it without allow-server-ssh is refused", func(t *testing.T) {
+		configPath := filepath.Join(t.TempDir(), "config.json")
+		require.NoError(t, os.WriteFile(configPath, []byte("{}"), 0600))
+
+		_, err := UpdateConfig(ConfigInput{
+			ConfigPath:         configPath,
+			ServerSSHAllowed:   util.False(),
+			SSHSessionRecorder: strPtr("100.64.0.5"),
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("a non-IP value is refused", func(t *testing.T) {
+		configPath := filepath.Join(t.TempDir(), "config.json")
+		require.NoError(t, os.WriteFile(configPath, []byte("{}"), 0600))
+
+		_, err := UpdateConfig(ConfigInput{
+			ConfigPath:         configPath,
+			ServerSSHAllowed:   util.True(),
+			SSHSessionRecorder: strPtr("not-an-ip"),
+		})
+		assert.Error(t, err)
+	})
+
+	t.Run("clearing it never requires allow-server-ssh", func(t *testing.T) {
+		configPath := filepath.Join(t.TempDir(), "config.json")
+		require.NoError(t, os.WriteFile(configPath, []byte("{}"), 0600))
+
+		config, err := UpdateConfig(ConfigInput{
+			ConfigPath:         configPath,
+			ServerSSHAllowed:   util.True(),
+			SSHSessionRecorder: strPtr("100.64.0.5"),
+		})
+		require.NoError(t, err)
+		require.Equal(t, "100.64.0.5", config.SSHSessionRecorder)
+
+		config, err = UpdateConfig(ConfigInput{
+			ConfigPath:         configPath,
+			ServerSSHAllowed:   util.False(),
+			SSHSessionRecorder: strPtr(""),
+		})
+		require.NoError(t, err)
+		assert.Empty(t, config.SSHSessionRecorder)
+	})
+}
+
 func TestUpdateConfigRemoteJobsAllowed(t *testing.T) {
 	// Unlike SSH (which defaults on for legacy configs), remote jobs are an
 	// explicit opt-in: a pre-existing config with no value materializes to off.

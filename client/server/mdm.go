@@ -224,6 +224,8 @@ func setConfigRequestHasConfigOverrides(msg *proto.SetConfigRequest) bool {
 		msg.EnableSSHRemotePortForwarding != nil ||
 		msg.DisableSSHAuth != nil ||
 		msg.SshJWTCacheTTL != nil ||
+		msg.SshSessionRecorder != nil ||
+		msg.DisableRecorderBanner != nil ||
 		msg.EnableLocalMetrics != nil ||
 		msg.LocalMetricsAddress != nil
 }

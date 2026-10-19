@@ -255,6 +255,12 @@ message LoginRequest {
   // remoteJobsAllowed opts the peer into management-requested remote jobs
   // (e.g. debug bundles). Absent leaves the stored value unchanged.
   optional bool remoteJobsAllowed = 43;
+
+  // sshSessionRecorder is the NetBird IP of the peer that records SSH session output.
+  optional string sshSessionRecorder = 44;
+
+  // disableRecorderBanner hides the recording notice banner; false keeps the stored value.
+  optional bool disableRecorderBanner = 45;
 }
 
 message LoginResponse {
@@ -376,6 +382,12 @@ message GetConfigResponse {
   bool disable_ipv6 = 27;
 
   bool remoteJobsAllowed = 29;
+
+  // sshSessionRecorder is the NetBird IP of the peer that records SSH session output.
+  string sshSessionRecorder = 30;
+
+  // disableRecorderBanner hides the recording notice banner; false keeps the stored value.
+  bool disableRecorderBanner = 31;
 
   // mDMManagedFields lists the names of configuration keys whose value is
   // currently enforced by an MDM policy. Names match mdm.Key* constants
@@ -787,6 +799,12 @@ message SetConfigRequest {
   // remoteJobsAllowed opts the peer into management-requested remote jobs
   // (e.g. debug bundles). Absent leaves the stored value unchanged.
   optional bool remoteJobsAllowed = 38;
+
+  // sshSessionRecorder is the NetBird IP of the peer that records SSH session output.
+  optional string sshSessionRecorder = 39;
+
+  // disableRecorderBanner hides the recording notice banner; false keeps the stored value.
+  optional bool disableRecorderBanner = 40;
 }
 
 message SetConfigResponse{}

@@ -12,7 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// associateJWTUsername extracts pending JWT username for the session and associates it with the session state.
+// associateJWTUsername extracts the pending auth decision for the session
+// (JWT username plus recording requirement) and associates it with the session state.
 // Returns the JWT username (empty if none) for logging purposes.
 func (s *Server) associateJWTUsername(sess ssh.Session, sessionKey sessionKey) string {
 	key := newAuthKey(sess.User(), sess.RemoteAddr())
@@ -20,16 +21,16 @@ func (s *Server) associateJWTUsername(sess ssh.Session, sessionKey sessionKey) s
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	jwtUsername := s.pendingAuthJWT[key]
-	if jwtUsername == "" {
+	pending, ok := s.pendingAuthJWT[key]
+	if !ok || pending.jwtUsername == "" {
 		return ""
 	}
 
 	if state, exists := s.sessions[sessionKey]; exists {
-		state.jwtUsername = jwtUsername
+		state.jwtUsername = pending.jwtUsername
 	}
 	delete(s.pendingAuthJWT, key)
-	return jwtUsername
+	return pending.jwtUsername
 }
 
 // sessionHandler handles SSH sessions
@@ -71,7 +72,8 @@ func (s *Server) sessionHandler(session ssh.Session) {
 	}
 }
 
-func (s *Server) registerSession(session ssh.Session, sessionType string) sessionKey {
+// computeSessionKey deterministically derives a key from the session.
+func computeSessionKey(session ssh.Session) sessionKey {
 	sessionID := session.Context().Value(ssh.ContextKeySessionID)
 	if sessionID == nil {
 		sessionID = fmt.Sprintf("%p", session)
@@ -84,7 +86,11 @@ func (s *Server) registerSession(session ssh.Session, sessionType string) sessio
 
 	remoteAddr := session.RemoteAddr().String()
 	username := session.User()
-	sessionKey := sessionKey(fmt.Sprintf("%s@%s-%s", username, remoteAddr, shortID))
+	return sessionKey(fmt.Sprintf("%s@%s-%s", username, remoteAddr, shortID))
+}
+
+func (s *Server) registerSession(session ssh.Session, sessionType string) sessionKey {
+	sessionKey := computeSessionKey(session)
 
 	s.mu.Lock()
 	s.sessions[sessionKey] = &sessionState{
@@ -94,6 +100,19 @@ func (s *Server) registerSession(session ssh.Session, sessionType string) sessio
 	s.mu.Unlock()
 
 	return sessionKey
+}
+
+func (s *Server) sessionJWTUsername(session ssh.Session) string {
+	key := computeSessionKey(session)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	state, ok := s.sessions[key]
+	if !ok {
+		return ""
+	}
+	return state.jwtUsername
 }
 
 func (s *Server) unregisterSession(sessionKey sessionKey) {

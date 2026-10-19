@@ -872,6 +872,7 @@ func TestAddConfig_AllFieldsCovered(t *testing.T) {
 		EnableSSHRemotePortForwarding: &bTrue,
 		DisableSSHAuth:                &bTrue,
 		SSHJWTCacheTTL:                &iVal,
+		SSHSessionRecorder:            "100.64.0.5",
 		DisableClientRoutes:           true,
 		DisableServerRoutes:           true,
 		DisableDNS:                    true,

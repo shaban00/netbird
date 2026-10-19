@@ -194,6 +194,22 @@ builds:
       - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.CommitDate}}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+  - id: netbird-recorder
+    dir: recorder/cmd/recorder
+    env: [CGO_ENABLED=0]
+    binary: netbird-recorder
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - 7
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.BuildDate={{.CommitDate}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
   - id: netbird-idp-migrate
     dir: tools/idp-migrate
     env:
@@ -522,6 +538,28 @@ dockers_v2:
        - "{{ .Version }}"
        - "{{ if eq .Env.SKIP_PUBLISH \"false\" }}latest{{ end }}"
      dockerfile: proxy/Dockerfile
+     platforms:
+       - linux/amd64
+       - linux/arm64
+       - linux/arm
+     annotations:
+       "org.opencontainers.image.created": "{{.Date}}"
+       "org.opencontainers.image.title": "{{.ProjectName}}"
+       "org.opencontainers.image.version": "{{.Version}}"
+       "org.opencontainers.image.revision": "{{.FullCommit}}"
+       "org.opencontainers.image.source": "{{.GitURL}}"
+       "maintainer": "dev@netbird.io"
+   - id: netbird-recorder
+     disable: "{{ .Env.SKIP_DOCKER_PUSH }}"
+     ids:
+       - netbird-recorder
+     images:
+       - netbirdio/recorder
+       - ghcr.io/netbirdio/recorder
+     tags:
+       - "{{ .Version }}"
+       - "{{ if eq .Env.SKIP_PUBLISH \"false\" }}latest{{ end }}"
+     dockerfile: recorder/Dockerfile
      platforms:
        - linux/amd64
        - linux/arm64

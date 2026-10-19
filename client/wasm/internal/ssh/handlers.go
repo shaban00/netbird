@@ -68,6 +68,12 @@ func CreateJSInterface(client *Client) js.Value {
 }
 
 func readLoop(client *Client, jsInterface js.Value) {
+	// The browser terminal can't receive SSH banners, so show the banner
+	// (e.g. the recording notice) as the first output, formatted like displayBanner.
+	if banner := client.Banner(); banner != "" {
+		emitToJS(jsInterface, []byte(banner+"\r\n"))
+	}
+
 	buffer := make([]byte, 4096)
 	for {
 		n, err := client.Read(buffer)
@@ -82,10 +88,17 @@ func readLoop(client *Client, jsInterface js.Value) {
 			return
 		}
 
-		if ondata := jsInterface.Get("ondata"); !ondata.IsUndefined() {
-			uint8Array := js.Global().Get("Uint8Array").New(n)
-			js.CopyBytesToJS(uint8Array, buffer[:n])
-			ondata.Invoke(uint8Array)
-		}
+		emitToJS(jsInterface, buffer[:n])
 	}
+}
+
+// emitToJS forwards data to the JS side's ondata callback, if one is attached.
+func emitToJS(jsInterface js.Value, data []byte) {
+	ondata := jsInterface.Get("ondata")
+	if ondata.IsUndefined() {
+		return
+	}
+	uint8Array := js.Global().Get("Uint8Array").New(len(data))
+	js.CopyBytesToJS(uint8Array, data)
+	ondata.Invoke(uint8Array)
 }

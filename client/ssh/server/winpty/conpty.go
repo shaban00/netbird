@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 
@@ -19,6 +20,7 @@ import (
 
 var (
 	ErrEmptyEnvironment = errors.New("empty environment")
+	ErrRecordingLost    = errors.New("recording connection lost mid-session")
 )
 
 const (
@@ -31,6 +33,24 @@ const (
 	errCloseInputRead     = "close input read handle: %v"
 	errCloseConPtyCleanup = "close ConPty handle during cleanup"
 )
+
+type recordingFailWriter struct {
+	w      io.Writer
+	once   sync.Once
+	onFail func()
+}
+
+func newRecordingFailWriter(w io.Writer, onFail func()) *recordingFailWriter {
+	return &recordingFailWriter{w: w, onFail: onFail}
+}
+
+func (r *recordingFailWriter) Write(p []byte) (int, error) {
+	n, err := r.w.Write(p)
+	if err != nil {
+		r.once.Do(r.onFail)
+	}
+	return n, err
+}
 
 // PtyConfig holds configuration for Pty execution.
 type PtyConfig struct {
@@ -56,15 +76,16 @@ var (
 )
 
 // ExecutePtyWithUserToken executes a command with ConPty using user token.
-func ExecutePtyWithUserToken(session ssh.Session, ptyConfig PtyConfig, userConfig UserConfig) error {
+func ExecutePtyWithUserToken(session ssh.Session, ptyConfig PtyConfig, userConfig UserConfig, recordingWriter io.Writer) error {
 	args := buildShellArgs(ptyConfig.Shell, ptyConfig.Command)
 	commandLine := buildCommandLine(args)
 
 	config := ExecutionConfig{
-		Pty:     ptyConfig,
-		User:    userConfig,
-		Session: session,
-		Context: session.Context(),
+		Pty:             ptyConfig,
+		User:            userConfig,
+		Session:         session,
+		Context:         session.Context(),
+		RecordingWriter: recordingWriter,
 	}
 
 	return executeConPtyWithConfig(commandLine, config)
@@ -72,10 +93,11 @@ func ExecutePtyWithUserToken(session ssh.Session, ptyConfig PtyConfig, userConfi
 
 // ExecutionConfig holds all execution configuration.
 type ExecutionConfig struct {
-	Pty     PtyConfig
-	User    UserConfig
-	Session ssh.Session
-	Context context.Context
+	Pty             PtyConfig
+	User            UserConfig
+	Session         ssh.Session
+	Context         context.Context
+	RecordingWriter io.Writer
 }
 
 // executeConPtyWithConfig creates ConPty and executes process with configuration.
@@ -141,7 +163,20 @@ func executeConPtyWithConfig(commandLine string, config ExecutionConfig) error {
 		log.Debugf("close output write handle: %v", err)
 	}
 
-	return bridgeConPtyIO(ctx, hPty, inputWrite, outputRead, session, session, session, pi.Process)
+	outputWriter := io.Writer(session)
+	var recordingLost atomic.Bool
+	if config.RecordingWriter != nil {
+		failWriter := newRecordingFailWriter(config.RecordingWriter, func() {
+			recordingLost.Store(true)
+			log.Warn("recording connection lost mid-session; terminating session (recording was required)")
+			if err := windows.TerminateProcess(pi.Process, 1); err != nil {
+				log.Debugf("terminate process after recording loss: %v", err)
+			}
+		})
+		outputWriter = io.MultiWriter(session, failWriter)
+	}
+
+	return bridgeConPtyIO(ctx, hPty, inputWrite, outputRead, session, outputWriter, session, pi.Process, &recordingLost)
 }
 
 // createConPtyPipes creates input/output pipes for ConPty.
@@ -329,7 +364,7 @@ type SessionExiter interface {
 }
 
 // bridgeConPtyIO handles I/O bridging between ConPty and readers/writers.
-func bridgeConPtyIO(ctx context.Context, hPty, inputWrite, outputRead windows.Handle, reader io.ReadCloser, writer io.Writer, session SessionExiter, process windows.Handle) error {
+func bridgeConPtyIO(ctx context.Context, hPty, inputWrite, outputRead windows.Handle, reader io.ReadCloser, writer io.Writer, session SessionExiter, process windows.Handle, recordingLost *atomic.Bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -340,15 +375,6 @@ func bridgeConPtyIO(ctx context.Context, hPty, inputWrite, outputRead windows.Ha
 	processErr := waitForProcess(ctx, process)
 	if processErr != nil {
 		return processErr
-	}
-
-	var exitCode uint32
-	if err := windows.GetExitCodeProcess(process, &exitCode); err != nil {
-		log.Debugf("get exit code: %v", err)
-	} else {
-		if err := session.Exit(int(exitCode)); err != nil {
-			log.Debugf("report exit code: %v", err)
-		}
 	}
 
 	// Clean up in the original order after process completes
@@ -365,6 +391,21 @@ func bridgeConPtyIO(ctx context.Context, hPty, inputWrite, outputRead windows.Ha
 
 	if err := windows.CloseHandle(outputRead); err != nil {
 		log.Debugf("close output read handle: %v", err)
+	}
+
+	// recordingLost is written by the output goroutine; only safe to read
+	// after wg.Wait(). If set, denyRecordingLost reports instead of the exit code.
+	if recordingLost != nil && recordingLost.Load() {
+		return ErrRecordingLost
+	}
+
+	var exitCode uint32
+	if err := windows.GetExitCodeProcess(process, &exitCode); err != nil {
+		log.Debugf("get exit code: %v", err)
+	} else {
+		if err := session.Exit(int(exitCode)); err != nil {
+			log.Debugf("report exit code: %v", err)
+		}
 	}
 
 	return nil

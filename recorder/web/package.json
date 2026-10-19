@@ -1,0 +1,34 @@
+{
+  "name": "netbird-recorder-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web UI for the NetBird SSH session recorder",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build"
+  },
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@radix-ui/react-popover": "1.1.4",
+    "asciinema-player": "3.17.0",
+    "class-variance-authority": "0.7.0",
+    "classnames": "2.5.1",
+    "clsx": "2.1.1",
+    "dayjs": "1.11.13",
+    "lucide-react": "0.468.0",
+    "next": "16.4.2",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "swr": "2.2.5",
+    "tailwind-merge": "2.5.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.10.0",
+    "@types/react": "19.0.0",
+    "@types/react-dom": "19.0.0",
+    "postcss": "8.4.49",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.7.2"
+  }
+}

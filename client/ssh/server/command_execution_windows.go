@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/user"
@@ -15,6 +17,7 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
+	"github.com/netbirdio/netbird/client/ssh/server/recording"
 	"github.com/netbirdio/netbird/client/ssh/server/winpty"
 )
 
@@ -297,7 +300,7 @@ type PtyExecutionRequest struct {
 	Domain   string
 }
 
-func executePtyCommandWithUserToken(logger *log.Entry, session ssh.Session, req PtyExecutionRequest) error {
+func executePtyCommandWithUserToken(logger *log.Entry, session ssh.Session, req PtyExecutionRequest, recSession *recording.Session) error {
 	logger.Tracef("executing Windows ConPty command with user switching: shell=%s, command=%s, user=%s\\%s, size=%dx%d",
 		req.Shell, req.Command, req.Domain, req.Username, req.Width, req.Height)
 
@@ -337,8 +340,13 @@ func executePtyCommandWithUserToken(logger *log.Entry, session ssh.Session, req 
 		Environment: userEnv,
 	}
 
+	var recordingWriter io.Writer
+	if recSession != nil {
+		recordingWriter = recSession
+	}
+
 	logger.Debugf("executePtyCommandWithUserToken: calling winpty execution with working dir: %s", workingDir)
-	return winpty.ExecutePtyWithUserToken(session, ptyConfig, userConfig)
+	return winpty.ExecutePtyWithUserToken(session, ptyConfig, userConfig, recordingWriter)
 }
 
 func getUserHomeFromEnv(env []string) string {
@@ -386,6 +394,19 @@ func (s *Server) executeCommandWithPty(logger *log.Entry, session ssh.Session, _
 	username, domain := parseUsername(localUser.Username)
 	shell := getUserShell(localUser.Uid)
 
+	cols, rows := uint32(ptyReq.Window.Width), uint32(ptyReq.Window.Height)
+	if cols == 0 {
+		cols = defaultRecordingCols
+	}
+	if rows == 0 {
+		rows = defaultRecordingRows
+	}
+	recSession, err := s.startRecordingIfRequired(logger, session, cols, rows)
+	if err != nil {
+		denyRecordingRequired(logger, session)
+		return false
+	}
+
 	req := PtyExecutionRequest{
 		Shell:    shell,
 		Command:  session.RawCommand(),
@@ -395,13 +416,21 @@ func (s *Server) executeCommandWithPty(logger *log.Entry, session ssh.Session, _
 		Domain:   domain,
 	}
 
-	if err := executePtyCommandWithUserToken(logger, session, req); err != nil {
-		logger.Errorf("ConPty execution failed: %v", err)
+	execErr := executePtyCommandWithUserToken(logger, session, req, recSession)
+	if errors.Is(execErr, winpty.ErrRecordingLost) {
+		closeRecording(recSession, 1)
+		denyRecordingLost(logger, session, execErr)
+		return false
+	}
+	if execErr != nil {
+		closeRecording(recSession, -1)
+		logger.Errorf("ConPty execution failed: %v", execErr)
 		if err := session.Exit(1); err != nil {
 			logSessionExitError(logger, err)
 		}
 		return false
 	}
+	closeRecording(recSession, 0)
 
 	logger.Debug("ConPty execution completed")
 	return true

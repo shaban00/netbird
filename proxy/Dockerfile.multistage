@@ -12,6 +12,7 @@ COPY formatter ./formatter
 COPY monotime ./monotime
 COPY management ./management
 COPY proxy ./proxy
+COPY recorder ./recorder
 COPY route ./route
 COPY shared ./shared
 COPY sharedsock ./sharedsock

@@ -25,6 +25,7 @@ jobs:
               'infrastructure',
               'self-hosted',
               'doc',
+              'recorder',
             ];
 
             const pattern = /^\[([^\]]+)\]\s+.+/;

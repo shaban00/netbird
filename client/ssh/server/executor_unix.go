@@ -26,13 +26,14 @@ const (
 
 // ExecutorConfig holds configuration for the executor process
 type ExecutorConfig struct {
-	UID        uint32
-	GID        uint32
-	Groups     []uint32
-	WorkingDir string
-	Shell      string
-	Command    string
-	PTY        bool
+	UID           uint32
+	GID           uint32
+	Groups        []uint32
+	WorkingDir    string
+	Shell         string
+	Command       string
+	PTY           bool
+	TraceCommands bool
 }
 
 // PrivilegeDropper handles secure privilege dropping in child processes
@@ -96,6 +97,8 @@ func (pd *PrivilegeDropper) CreateExecutorCommand(ctx context.Context, config Ex
 
 	if config.Command != "" {
 		args = append(args, "--cmd", config.Command)
+	} else if config.TraceCommands {
+		args = append(args, "--trace")
 	}
 
 	// Log executor args safely - show all args except hide the command value
@@ -230,12 +233,20 @@ func (pd *PrivilegeDropper) ExecuteWithPrivilegeDrop(ctx context.Context, config
 	}
 
 	var execCmd *exec.Cmd
-	if config.Command == "" {
-		execCmd = exec.CommandContext(ctx, config.Shell)
-	} else {
+	switch {
+	case config.Command != "":
 		execCmd = exec.CommandContext(ctx, config.Shell, "-c", config.Command)
+	case config.TraceCommands:
+		if bashPath, err := exec.LookPath("bash"); err == nil {
+			execCmd = exec.CommandContext(ctx, bashPath, "-v")
+		} else {
+			log.Debugf("bash not found, cannot trace commands for an interactive recorded session: %v", err)
+			execCmd = exec.CommandContext(ctx, config.Shell)
+		}
+	default:
+		execCmd = exec.CommandContext(ctx, config.Shell)
 	}
-	execCmd.Args[0] = "-" + filepath.Base(config.Shell)
+	execCmd.Args[0] = "-" + filepath.Base(execCmd.Path)
 	execCmd.Stdin = os.Stdin
 	execCmd.Stdout = os.Stdout
 	execCmd.Stderr = os.Stderr

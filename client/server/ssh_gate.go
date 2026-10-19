@@ -27,6 +27,8 @@ import (
 //     daemon's SSH server into a root (or unauthenticated) shell.
 //   - Enabling the SSH server at all is what makes the above reachable, and a
 //     profile the caller owns is not a privilege they hold.
+//   - The SSH session recorder receives all SSH output.
+//   - Disabling the recording banner hides recording from users.
 //   - While the SSH server is enabled, repointing the profile at another
 //     management identity hands SSH authorization decisions, including which
 //     keys and users are accepted, to whoever controls that identity. Changing
@@ -42,36 +44,42 @@ import (
 // user-to-root boundary. Fields are nil or empty when the request leaves them
 // untouched.
 type privilegedConfigChange struct {
-	managementURL       string
-	serverSSHAllowed    *bool
-	remoteJobsAllowed   *bool
-	enableSSHRoot       *bool
-	disableSSHAuth      *bool
-	enableLocalMetrics  *bool
-	localMetricsAddress *string
+	managementURL         string
+	serverSSHAllowed      *bool
+	remoteJobsAllowed     *bool
+	enableSSHRoot         *bool
+	disableSSHAuth        *bool
+	sshSessionRecorder    *string
+	disableRecorderBanner *bool
+	enableLocalMetrics    *bool
+	localMetricsAddress   *string
 }
 
 func privilegedChangeFromSetConfig(msg *proto.SetConfigRequest) privilegedConfigChange {
 	return privilegedConfigChange{
-		managementURL:       msg.GetManagementUrl(),
-		serverSSHAllowed:    msg.ServerSSHAllowed,
-		remoteJobsAllowed:   msg.RemoteJobsAllowed,
-		enableSSHRoot:       msg.EnableSSHRoot,
-		disableSSHAuth:      msg.DisableSSHAuth,
-		enableLocalMetrics:  msg.EnableLocalMetrics,
-		localMetricsAddress: msg.LocalMetricsAddress,
+		managementURL:         msg.GetManagementUrl(),
+		serverSSHAllowed:      msg.ServerSSHAllowed,
+		remoteJobsAllowed:     msg.RemoteJobsAllowed,
+		enableSSHRoot:         msg.EnableSSHRoot,
+		disableSSHAuth:        msg.DisableSSHAuth,
+		sshSessionRecorder:    msg.SshSessionRecorder,
+		disableRecorderBanner: msg.DisableRecorderBanner,
+		enableLocalMetrics:    msg.EnableLocalMetrics,
+		localMetricsAddress:   msg.LocalMetricsAddress,
 	}
 }
 
 func privilegedChangeFromLogin(msg *proto.LoginRequest) privilegedConfigChange {
 	return privilegedConfigChange{
-		managementURL:       msg.GetManagementUrl(),
-		serverSSHAllowed:    msg.ServerSSHAllowed,
-		remoteJobsAllowed:   msg.RemoteJobsAllowed,
-		enableSSHRoot:       msg.EnableSSHRoot,
-		disableSSHAuth:      msg.DisableSSHAuth,
-		enableLocalMetrics:  msg.EnableLocalMetrics,
-		localMetricsAddress: msg.LocalMetricsAddress,
+		managementURL:         msg.GetManagementUrl(),
+		serverSSHAllowed:      msg.ServerSSHAllowed,
+		remoteJobsAllowed:     msg.RemoteJobsAllowed,
+		enableSSHRoot:         msg.EnableSSHRoot,
+		disableSSHAuth:        msg.DisableSSHAuth,
+		sshSessionRecorder:    msg.SshSessionRecorder,
+		disableRecorderBanner: msg.DisableRecorderBanner,
+		enableLocalMetrics:    msg.EnableLocalMetrics,
+		localMetricsAddress:   msg.LocalMetricsAddress,
 	}
 }
 
@@ -93,6 +101,14 @@ func requirePrivilegeForConfigChange(ctx context.Context, stored *profilemanager
 
 	if enables(sshServerCurrentlyAllowed(stored), change.serverSSHAllowed) {
 		return denyPrivileged(ctx, "enabling the NetBird SSH server", ipcauth.UpCommand("--allow-server-ssh"))
+	}
+
+	if setsSessionRecorder(storedSessionRecorder(stored), change.sshSessionRecorder) {
+		return denyPrivileged(ctx, "setting the SSH session recorder", ipcauth.UpCommand("--ssh-session-recorder <ip>"))
+	}
+
+	if setsRecorderBannerDisabled(storedRecorderBannerDisabled(stored), change.disableRecorderBanner) {
+		return denyPrivileged(ctx, "disabling the SSH session recording banner", ipcauth.UpCommand("--disable-recorder-banner"))
 	}
 
 	// Enabling remote jobs lets the management server run jobs (e.g. debug
@@ -244,6 +260,40 @@ func storedFlag(cfg *profilemanager.Config, get func(*profilemanager.Config) *bo
 		return nil
 	}
 	return get(cfg)
+}
+
+// setsSessionRecorder reports whether requested sets or clears the recorder address.
+// Both are privileged; clearing disables mandatory recording.
+func setsSessionRecorder(stored string, requested *string) bool {
+	if requested == nil || *requested == stored {
+		return false
+	}
+	return true
+}
+
+// storedSessionRecorder returns the stored recorder address, if any.
+func storedSessionRecorder(cfg *profilemanager.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	return cfg.SSHSessionRecorder
+}
+
+// setsRecorderBannerDisabled reports whether requested newly hides the
+// recording banner, the only privileged banner change.
+func setsRecorderBannerDisabled(stored bool, requested *bool) bool {
+	if requested == nil || !*requested {
+		return false
+	}
+	return !stored
+}
+
+// storedRecorderBannerDisabled reports whether the banner is disabled; false if no config exists.
+func storedRecorderBannerDisabled(cfg *profilemanager.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	return cfg.DisableRecorderBanner
 }
 
 // sshServerEnabled reports whether the profile currently runs the SSH server.

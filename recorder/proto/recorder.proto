@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "/proto";
+
+package recorder;
+
+// RecorderService receives a producer's (SSH server peer's) recording
+// stream for a single SSH session. The connection rides the WireGuard
+// tunnel directly — the recorder resolves the producer's real peer
+// identity from the connection's source tunnel IP (unspoofable at the
+// WireGuard layer) and cross-checks it against SessionStart.claimed_peer_id,
+// never trusting the claim alone.
+service RecorderService {
+  rpc Stream(stream RecordEvent) returns (stream RecordEventAck) {}
+}
+
+message RecordEvent {
+  oneof event {
+    SessionStart start = 1;
+    Output output = 2;
+    Resize resize = 3;
+    SessionEnd end = 4;
+    Heartbeat heartbeat = 5;
+  }
+}
+
+message SessionStart {
+  // session_id is client-proposed for correlation in logs only. The
+  // recorder mints its own authoritative session ID and never uses this
+  // value to construct a filesystem path.
+  string session_id = 1;
+
+  // claimed_peer_id is cross-checked against the peer ID the recorder's
+  // own network map resolves for the connection's actual source tunnel IP.
+  string claimed_peer_id = 2;
+
+  // jwt_user_id_hash is already hashed per the existing sshuserhash
+  // convention used elsewhere in SSH auth — never a raw user identifier.
+  string jwt_user_id_hash = 3;
+
+  string os_username = 4;
+  uint32 cols = 5;
+  uint32 rows = 6;
+  google.protobuf.Timestamp started_at = 7;
+
+  // source_peer_id/source_peer_name/source_peer_ip identify the peer the
+  // SSH connection originated from — resolved locally by the SSH server
+  // peer (the producer) from its own network map against the connection's
+  // tunnel-source IP, the same primitive the recorder itself uses to
+  // resolve the producer's identity. Empty when the source doesn't resolve
+  // to a known peer (e.g. the connecting identity authenticated via
+  // JWT/SSO from a non-NetBird client).
+  string source_peer_id = 8;
+  string source_peer_name = 9;
+  string source_peer_ip = 10;
+}
+
+message Output {
+  // Raw PTY output bytes only — never client input/keystrokes. The
+  // recorder timestamps each Output event on receipt for the asciicast
+  // event stream; it does not trust a client-supplied timestamp.
+  bytes data = 1;
+}
+
+message Resize {
+  uint32 cols = 1;
+  uint32 rows = 2;
+}
+
+message SessionEnd {
+  int32 exit_code = 1;
+}
+
+// Heartbeat carries no data. A producer sends one periodically whenever a
+// session has had no other event to send for a while, so the recorder can
+// tell a legitimately idle interactive session (user sitting at a prompt)
+// apart from a producer that opened a stream and went silent forever —
+// see the recorder's idle-stream timeout.
+message Heartbeat {}
+
+message RecordEventAck {
+  // last_seq is the highest contiguous event sequence number the recorder
+  // has durably accepted. Coalesced/periodic, not one ack per event —
+  // recording doesn't need per-byte ack granularity.
+  uint64 last_seq = 1;
+}

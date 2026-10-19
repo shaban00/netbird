@@ -470,6 +470,12 @@ func setSSHSetConfigFields(req *proto.SetConfigRequest, cmd *cobra.Command) {
 		sshJWTCacheTTL32 := int32(sshJWTCacheTTL)
 		req.SshJWTCacheTTL = &sshJWTCacheTTL32
 	}
+	if cmd.Flag(sshSessionRecorderFlag).Changed {
+		req.SshSessionRecorder = &sshSessionRecorder
+	}
+	if cmd.Flag(disableRecorderBannerFlag).Changed {
+		req.DisableRecorderBanner = &disableRecorderBanner
+	}
 }
 
 func setupSetConfigReq(customDNSAddressConverted []byte, cmd *cobra.Command, profileName, username string) *proto.SetConfigRequest {
@@ -611,6 +617,14 @@ func setupConfig(customDNSAddressConverted []byte, cmd *cobra.Command, configFil
 		ic.SSHJWTCacheTTL = &sshJWTCacheTTL
 	}
 
+	if cmd.Flag(sshSessionRecorderFlag).Changed {
+		ic.SSHSessionRecorder = &sshSessionRecorder
+	}
+
+	if cmd.Flag(disableRecorderBannerFlag).Changed {
+		ic.DisableRecorderBanner = &disableRecorderBanner
+	}
+
 	if cmd.Flag(interfaceNameFlag).Changed {
 		if err := parseInterfaceName(interfaceName); err != nil {
 			return nil, err
@@ -715,6 +729,12 @@ func setSSHLoginFields(req *proto.LoginRequest, cmd *cobra.Command) {
 	if cmd.Flag(sshJWTCacheTTLFlag).Changed {
 		sshJWTCacheTTL32 := int32(sshJWTCacheTTL)
 		req.SshJWTCacheTTL = &sshJWTCacheTTL32
+	}
+	if cmd.Flag(sshSessionRecorderFlag).Changed {
+		req.SshSessionRecorder = &sshSessionRecorder
+	}
+	if cmd.Flag(disableRecorderBannerFlag).Changed {
+		req.DisableRecorderBanner = &disableRecorderBanner
 	}
 }
 

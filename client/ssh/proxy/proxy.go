@@ -600,6 +600,7 @@ func (p *SSHProxy) dialBackend(ctx context.Context, addr, user, jwtToken string)
 		Auth:            []cryptossh.AuthMethod{cryptossh.Password(jwtToken)},
 		Timeout:         sshHandshakeTimeout,
 		HostKeyCallback: p.verifyHostKey,
+		BannerCallback:  p.displayBanner,
 	}
 
 	dialer := &net.Dialer{
@@ -614,6 +615,11 @@ func (p *SSHProxy) dialBackend(ctx context.Context, addr, user, jwtToken string)
 	defer cancel()
 
 	return nbssh.Handshake(handshakeCtx, conn, addr, config)
+}
+
+func (p *SSHProxy) displayBanner(message string) error {
+	_, _ = fmt.Fprint(p.stderr, message, "\r\n")
+	return nil
 }
 
 func (p *SSHProxy) verifyHostKey(hostname string, remote net.Addr, key cryptossh.PublicKey) error {

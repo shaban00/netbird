@@ -36,6 +36,7 @@ type Client struct {
 	stdin     io.WriteCloser
 	stdout    io.Reader
 	stderr    io.Reader
+	banner    string
 	mu        sync.RWMutex
 }
 
@@ -61,6 +62,7 @@ func (c *Client) Connect(host string, port int, username, jwtToken string, ipVer
 		User:            username,
 		Auth:            authMethods,
 		HostKeyCallback: nbssh.CreateHostKeyCallback(c.nbClient),
+		BannerCallback:  c.captureBanner,
 		Timeout:         sshDialTimeout,
 	}
 
@@ -89,6 +91,21 @@ func (c *Client) Connect(host string, port int, username, jwtToken string, ipVer
 	logrus.Infof("SSH: Connected to %s", addr)
 
 	return nil
+}
+
+func (c *Client) captureBanner(message string) error {
+	c.mu.Lock()
+	c.banner = message
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *Client) Banner() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	banner := c.banner
+	c.banner = ""
+	return banner
 }
 
 // getAuthMethods returns SSH authentication methods, preferring JWT if available

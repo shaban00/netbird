@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 }
 
 // runTestExecutor emulates the netbird executor for tests.
-// Parses --shell and --cmd args, runs the command, and exits with the correct code.
+// Parses --shell, --cmd, and --trace args, runs the command, and exits with the correct code.
 func runTestExecutor() {
 	if os.Getenv("_NETBIRD_TEST_EXECUTOR") != "" {
 		fmt.Fprintf(os.Stderr, "executor recursion detected\n")
@@ -52,6 +52,7 @@ func runTestExecutor() {
 
 	shell := "/bin/sh"
 	var command string
+	var trace bool
 	for i := 3; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "--shell":
@@ -64,16 +65,25 @@ func runTestExecutor() {
 				command = os.Args[i+1]
 				i++
 			}
+		case "--trace":
+			trace = true
 		}
 	}
 
 	var cmd *exec.Cmd
-	if command == "" {
-		cmd = exec.Command(shell)
-	} else {
+	switch {
+	case command != "":
 		cmd = exec.Command(shell, "-c", command)
+	case trace:
+		if bashPath, err := exec.LookPath("bash"); err == nil {
+			cmd = exec.Command(bashPath, "-v")
+		} else {
+			cmd = exec.Command(shell)
+		}
+	default:
+		cmd = exec.Command(shell)
 	}
-	cmd.Args[0] = "-" + filepath.Base(shell)
+	cmd.Args[0] = "-" + filepath.Base(cmd.Path)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

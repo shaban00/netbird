@@ -127,6 +127,11 @@ type connState struct {
 // Used to temporarily store JWT username between passwordHandler and sessionHandler.
 type authKey string
 
+// pendingAuth is the JWT username passed from auth to session.
+type pendingAuth struct {
+	jwtUsername string
+}
+
 // connKey uniquely identifies an SSH connection by its remote address.
 // Used to track authenticated connections for status display and port forwarding.
 type connKey string
@@ -153,9 +158,9 @@ type Server struct {
 	// These are created when a client opens a session channel and requests shell/exec/subsystem.
 	sessions map[sessionKey]*sessionState
 
-	// pendingAuthJWT temporarily stores JWT username during the auth→session handoff.
+	// pendingAuthJWT temporarily stores the auth decision during the auth→session handoff.
 	// Populated in passwordHandler, consumed in sessionHandler/sftpSubsystemHandler.
-	pendingAuthJWT map[authKey]string
+	pendingAuthJWT map[authKey]pendingAuth
 
 	// connections tracks all SSH connections by their remote address.
 	// Populated at authentication time, stores JWT username and port forwards for status display.
@@ -179,9 +184,15 @@ type Server struct {
 
 	authorizer *sshauth.Authorizer
 
+	ownPeerID         string
+	resolveSourcePeer SourcePeerResolver
+	recorderDialSlots chan struct{}
+
 	suSupportsPty    bool
 	loginIsUtilLinux bool
 }
+
+type SourcePeerResolver func(ip string) (peerID, name string, ok bool)
 
 type JWTConfig struct {
 	Issuer       string
@@ -203,6 +214,12 @@ type Config struct {
 	// Setting it here rather than afterwards means the server never accepts a
 	// login before it knows who is allowed.
 	Auth *sshauth.Config
+
+	// OwnPeerID is this peer's public key; the recorder verifies it by source IP.
+	OwnPeerID string
+
+	// SourcePeerResolver attributes recordings to the source peer; nil disables it.
+	SourcePeerResolver SourcePeerResolver
 }
 
 // SessionInfo contains information about an active SSH session
@@ -221,12 +238,15 @@ func New(config *Config) *Server {
 		mu:                     sync.RWMutex{},
 		hostKeyPEM:             config.HostKeyPEM,
 		sessions:               make(map[sessionKey]*sessionState),
-		pendingAuthJWT:         make(map[authKey]string),
+		pendingAuthJWT:         make(map[authKey]pendingAuth),
 		remoteForwardListeners: make(map[forwardKey]net.Listener),
 		connections:            make(map[connKey]*connState),
 		jwtEnabled:             config.JWT != nil,
 		jwtConfig:              config.JWT,
 		authorizer:             sshauth.NewAuthorizer(),
+		ownPeerID:              config.OwnPeerID,
+		resolveSourcePeer:      config.SourcePeerResolver,
+		recorderDialSlots:      make(chan struct{}, maxConcurrentRecorderDials),
 	}
 
 	if config.Auth != nil {
@@ -492,6 +512,18 @@ func (s *Server) AuthConfig() *sshauth.Config {
 	return authorizer.Config()
 }
 
+// loginBanner returns the pre-auth recording banner, or "" if off.
+func (s *Server) loginBanner(_ ssh.Context) string {
+	s.mu.RLock()
+	authorizer := s.authorizer
+	s.mu.RUnlock()
+
+	if authorizer == nil {
+		return ""
+	}
+	return authorizer.LoginBanner()
+}
+
 // ensureJWTValidator initializes the JWT validator and extractor if not already initialized
 func (s *Server) ensureJWTValidator() error {
 	s.mu.RLock()
@@ -703,18 +735,23 @@ func (s *Server) passwordHandler(ctx ssh.Context, password string) bool {
 	authorizer := s.authorizer
 	s.mu.RUnlock()
 
-	msg, err := authorizer.Authorize(userAuth.UserId, osUsername)
+	decision, err := authorizer.Authorize(userAuth.UserId, osUsername)
 	if err != nil {
 		logger.Warnf("SSH auth denied: %v", err)
 		return false
 	}
 
-	logger.Infof("SSH auth %s", msg)
+	logger.Infof("SSH auth %s", decision.Message)
+	if decision.RequireRecording {
+		logger.WithField("recorder_addr", decision.RecorderAddr).Info("SSH session recording required")
+	}
 
 	key := newAuthKey(osUsername, remoteAddr)
 	remoteAddrStr := ctx.RemoteAddr().String()
 	s.mu.Lock()
-	s.pendingAuthJWT[key] = userAuth.UserId
+	s.pendingAuthJWT[key] = pendingAuth{
+		jwtUsername: userAuth.UserId,
+	}
 	s.connections[connKey(remoteAddrStr)] = &connState{
 		username:    ctx.User(),
 		remoteAddr:  ctx.RemoteAddr(),
@@ -742,7 +779,7 @@ func (s *Server) addConnectionPortForward(username string, remoteAddr net.Addr, 
 		username:     username,
 		remoteAddr:   remoteAddr,
 		portForwards: []string{forwardAddr},
-		jwtUsername:  s.pendingAuthJWT[newAuthKey(username, remoteAddr)],
+		jwtUsername:  s.pendingAuthJWT[newAuthKey(username, remoteAddr)].jwtUsername,
 	}
 }
 
@@ -876,6 +913,14 @@ func (s *Server) createSSHServer(addr net.Addr) (*ssh.Server, error) {
 		serverVersion += " " + detection.JWTRequiredMarker
 	}
 
+	// Uncapturable channels (SFTP, direct-tcpip, tcpip-forward) are refused
+	// while recording is mandatory, or have no handler. This fail-closed
+	// posture only covers what's registered here.
+	//
+	// gliderlabs/ssh@v0.3.8 auto-accepts "auth-agent-req@openssh.com", but no
+	// agent channel is ever opened, so no data flows. If agent forwarding is
+	// added, it MUST be gated on recordingRequired() like direct-tcpip, or it
+	// becomes an unrecorded channel.
 	server := &ssh.Server{
 		Addr:    addr.String(),
 		Handler: s.sessionHandler,
@@ -891,8 +936,9 @@ func (s *Server) createSSHServer(addr net.Addr) (*ssh.Server, error) {
 			"tcpip-forward":        s.tcpipForwardHandler,
 			"cancel-tcpip-forward": s.cancelTcpipForwardHandler,
 		},
-		ConnCallback: s.connectionValidator,
-		Version:      serverVersion,
+		ConnCallback:  s.connectionValidator,
+		Version:       serverVersion,
+		BannerHandler: s.loginBanner,
 	}
 
 	if s.jwtEnabled {
@@ -955,6 +1001,13 @@ func (s *Server) directTCPIPHandler(srv *ssh.Server, conn *cryptossh.ServerConn,
 	if !allowLocal {
 		logger.Warnf("local port forwarding denied for %s: disabled", net.JoinHostPort(payload.Host, strconv.Itoa(int(payload.Port))))
 		_ = newChan.Reject(cryptossh.Prohibited, "local port forwarding disabled")
+		return
+	}
+
+	// Refuse forwarding while recording is required; it would bypass recording.
+	if required, _ := s.recordingRequired(); required {
+		logger.Warnf("local port forwarding denied for %s: SSH session recording is required and forwarded traffic cannot be recorded", net.JoinHostPort(payload.Host, strconv.Itoa(int(payload.Port))))
+		_ = newChan.Reject(cryptossh.Prohibited, "port forwarding is not available while SSH session recording is required")
 		return
 	}
 

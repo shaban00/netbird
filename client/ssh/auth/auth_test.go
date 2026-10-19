@@ -9,6 +9,73 @@ import (
 	"github.com/netbirdio/netbird/shared/sshauth"
 )
 
+func TestAuthorizer_Authorize_Recording(t *testing.T) {
+	authorizer := NewAuthorizer()
+
+	userHash, err := sshauth.HashUserID("user1")
+	require.NoError(t, err)
+
+	config := &Config{
+		UserIDClaim:     DefaultUserIDClaim,
+		AuthorizedUsers: []sshauth.UserIDHash{userHash},
+		MachineUsers:    map[string][]uint32{Wildcard: {0}},
+		RecorderAddr:    "100.64.0.5:22023",
+	}
+	authorizer.Update(config)
+
+	for _, osUser := range []string{"root", "ubuntu", "postgres"} {
+		decision, err := authorizer.Authorize("user1", osUser)
+		require.NoError(t, err)
+		assert.True(t, decision.RequireRecording, "osUser=%s", osUser)
+		assert.Equal(t, "100.64.0.5:22023", decision.RecorderAddr, "osUser=%s", osUser)
+	}
+
+	authorizer.Update(&Config{
+		UserIDClaim:     DefaultUserIDClaim,
+		AuthorizedUsers: []sshauth.UserIDHash{userHash},
+		MachineUsers:    map[string][]uint32{Wildcard: {0}},
+	})
+
+	decision, err := authorizer.Authorize("user1", "root")
+	require.NoError(t, err)
+	assert.False(t, decision.RequireRecording)
+	assert.Empty(t, decision.RecorderAddr)
+}
+
+func TestAuthorizer_RecordingRequired(t *testing.T) {
+	authorizer := NewAuthorizer()
+
+	required, addr := authorizer.RecordingRequired()
+	assert.False(t, required, "no recorder configured")
+	assert.Empty(t, addr)
+
+	authorizer.Update(&Config{RecorderAddr: "100.64.0.5:22023"})
+	required, addr = authorizer.RecordingRequired()
+	assert.True(t, required)
+	assert.Equal(t, "100.64.0.5:22023", addr)
+
+	// No Authorize call anywhere in this test — RecordingRequired must not
+	// depend on one ever having run.
+	authorizer.Update(&Config{})
+	required, addr = authorizer.RecordingRequired()
+	assert.False(t, required, "recording cleared")
+	assert.Empty(t, addr)
+}
+
+func TestAuthorizer_LoginBanner(t *testing.T) {
+	authorizer := NewAuthorizer()
+	assert.Empty(t, authorizer.LoginBanner(), "no recorder configured")
+
+	authorizer.Update(&Config{RecorderAddr: "100.64.0.5:22023"})
+	assert.Equal(t, loginBannerMessage, authorizer.LoginBanner(), "recording on, banner not disabled")
+
+	authorizer.Update(&Config{RecorderAddr: "100.64.0.5:22023", BannerDisabled: true})
+	assert.Empty(t, authorizer.LoginBanner(), "recording on, banner explicitly disabled")
+
+	authorizer.Update(&Config{})
+	assert.Empty(t, authorizer.LoginBanner(), "recording cleared")
+}
+
 func TestAuthorizer_Authorize_UserNotInList(t *testing.T) {
 	authorizer := NewAuthorizer()
 

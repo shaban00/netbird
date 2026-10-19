@@ -194,13 +194,14 @@ func (s *Server) createExecutorCommand(logger *log.Entry, session ssh.Session, l
 	}
 	privilegeDropper := NewPrivilegeDropper(WithLogger(logger))
 	config := ExecutorConfig{
-		UID:        uid,
-		GID:        gid,
-		Groups:     groups,
-		WorkingDir: localUser.HomeDir,
-		Shell:      getUserShell(localUser.Uid),
-		Command:    session.RawCommand(),
-		PTY:        hasPty,
+		UID:           uid,
+		GID:           gid,
+		Groups:        groups,
+		WorkingDir:    localUser.HomeDir,
+		Shell:         getUserShell(localUser.Uid),
+		Command:       session.RawCommand(),
+		PTY:           hasPty,
+		TraceCommands: s.wantInteractiveTrace(hasPty, session),
 	}
 
 	cmd, err := privilegeDropper.CreateExecutorCommand(session.Context(), config)

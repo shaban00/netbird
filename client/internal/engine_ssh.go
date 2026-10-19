@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"strings"
 
@@ -18,6 +19,9 @@ import (
 	mgmProto "github.com/netbirdio/netbird/shared/management/proto"
 	sshuserhash "github.com/netbirdio/netbird/shared/sshauth"
 )
+
+// sshSessionRecorderPort is the recorder peer's gRPC port (recorder --grpc-port default).
+const sshSessionRecorderPort = "22023"
 
 type sshServer interface {
 	Start(ctx context.Context, addr netip.AddrPort) error
@@ -79,7 +83,7 @@ func (e *Engine) updateSSH(sshConf *mgmProto.SSHConfig) error {
 
 	if e.config.DisableSSHAuth != nil && *e.config.DisableSSHAuth {
 		log.Info("starting SSH server without JWT authentication (authentication disabled by config)")
-		return e.startSSHServer(nil, nil)
+		return e.startSSHServer(nil, e.initialAuthConfig())
 	}
 
 	if protoJWT := sshConf.GetJwtConfig(); protoJWT != nil {
@@ -97,10 +101,17 @@ func (e *Engine) updateSSH(sshConf *mgmProto.SSHConfig) error {
 			MaxTokenAge:  protoJWT.GetMaxTokenAge(),
 		}
 
-		return e.startSSHServer(jwtConfig, nil)
+		return e.startSSHServer(jwtConfig, e.initialAuthConfig())
 	}
 
 	return errors.New("SSH server requires valid JWT configuration")
+}
+
+func (e *Engine) initialAuthConfig() *sshauth.Config {
+	return &sshauth.Config{
+		RecorderAddr:   e.sshSessionRecorderAddr(),
+		BannerDisabled: e.config.DisableRecorderBanner,
+	}
 }
 
 // updateSSHClientConfig updates the SSH client configuration with peer information
@@ -265,9 +276,11 @@ func (e *Engine) startSSHServer(jwtConfig *sshserver.JWTConfig, authConfig *ssha
 	}
 
 	serverConfig := &sshserver.Config{
-		HostKeyPEM: e.config.SSHKey,
-		JWT:        jwtConfig,
-		Auth:       authConfig,
+		HostKeyPEM:         e.config.SSHKey,
+		JWT:                jwtConfig,
+		Auth:               authConfig,
+		OwnPeerID:          e.config.WgPrivateKey.PublicKey().String(),
+		SourcePeerResolver: e.resolveSourcePeerForRecording,
 	}
 	server := sshserver.New(serverConfig)
 
@@ -441,7 +454,28 @@ func (e *Engine) updateSSHServerAuth(sshAuth *mgmProto.SSHAuth) {
 		UserIDClaim:     sshAuth.GetUserIDClaim(),
 		AuthorizedUsers: authorizedUsers,
 		MachineUsers:    machineUsers,
+		RecorderAddr:    e.sshSessionRecorderAddr(),
+		BannerDisabled:  e.config.DisableRecorderBanner,
 	}
 
 	e.sshServer.UpdateSSHAuth(authConfig)
+}
+
+// sshSessionRecorderAddr returns the recorder "ip:port", or "" if recording is off.
+func (e *Engine) sshSessionRecorderAddr() string {
+	if !e.config.ServerSSHAllowed || e.config.SSHSessionRecorder == "" {
+		return ""
+	}
+	return net.JoinHostPort(e.config.SSHSessionRecorder, sshSessionRecorderPort)
+}
+
+func (e *Engine) resolveSourcePeerForRecording(ip string) (peerID, name string, ok bool) {
+	if e.statusRecorder == nil {
+		return "", "", false
+	}
+	state, found := e.statusRecorder.PeerStateByIP(ip)
+	if !found {
+		return "", "", false
+	}
+	return state.PubKey, state.FQDN, true
 }

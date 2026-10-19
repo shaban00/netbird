@@ -18,6 +18,13 @@ const (
 	Wildcard = "*"
 )
 
+const loginBannerMessage = "" +
+	"******************************************************************************\r\n" +
+	"*                                                                            *\r\n" +
+	"*    This session is being recorded for security and compliance purposes     *\r\n" +
+	"*                                                                            *\r\n" +
+	"******************************************************************************\r\n"
+
 var (
 	ErrEmptyUserID           = errors.New("JWT user ID is empty")
 	ErrUserNotAuthorized     = errors.New("user is not authorized to access this peer")
@@ -36,6 +43,12 @@ type Authorizer struct {
 	// machineUsers maps OS login usernames to lists of authorized user indexes
 	machineUsers map[string][]uint32
 
+	// recorderAddr is the recorder "ip:port", or "" if disabled.
+	recorderAddr string
+
+	// bannerDisabled hides the recording banner.
+	bannerDisabled bool
+
 	// mu protects the list of users
 	mu sync.RWMutex
 }
@@ -51,6 +64,22 @@ type Config struct {
 	// MachineUsers maps OS login usernames to indexes in AuthorizedUsers
 	// If a user wants to login as a specific OS user, their index must be in the corresponding list
 	MachineUsers map[string][]uint32
+
+	// recorderAddr is the recorder "ip:port", or "" if disabled.
+	RecorderAddr string
+
+	// bannerDisabled hides the recording banner.
+	BannerDisabled bool
+}
+
+// Decision is a successful Authorize result
+type Decision struct {
+	// Message describes how authorization was granted, for logging.
+	Message string
+	// RequireRecording means PTY output must stream to RecorderAddr.
+	RequireRecording bool
+	// RecorderAddr is the recorder "ip:port"; set when RequireRecording is true.
+	RecorderAddr string
 }
 
 // NewAuthorizer creates a new SSH authorizer with empty configuration
@@ -73,6 +102,8 @@ func (a *Authorizer) Update(config *Config) {
 		a.userIDClaim = DefaultUserIDClaim
 		a.authorizedUsers = []sshuserhash.UserIDHash{}
 		a.machineUsers = make(map[string][]uint32)
+		a.recorderAddr = ""
+		a.bannerDisabled = false
 		log.Info("SSH authorization cleared")
 		return
 	}
@@ -94,22 +125,32 @@ func (a *Authorizer) Update(config *Config) {
 		}
 	}
 	a.machineUsers = machineUsers
+	a.recorderAddr = config.RecorderAddr
+	a.bannerDisabled = config.BannerDisabled
 
-	log.Debugf("SSH auth: updated with %d authorized users, %d machine user mappings",
-		len(config.AuthorizedUsers), len(machineUsers))
+	log.Debugf("SSH auth: updated with %d authorized users, %d machine user mappings, recording %s",
+		len(config.AuthorizedUsers), len(machineUsers), recordingStateLabel(config.RecorderAddr))
+}
+
+func recordingStateLabel(recorderAddr string) string {
+	if recorderAddr == "" {
+		return "off"
+	}
+	return "on"
 }
 
 // Authorize validates if a user is authorized to login as the specified OS user.
-// Returns a success message describing how authorization was granted, or an error.
-func (a *Authorizer) Authorize(jwtUserID, osUsername string) (string, error) {
+// Returns a Decision carrying both the grant message and the recording
+// requirement, or an error.
+func (a *Authorizer) Authorize(jwtUserID, osUsername string) (*Decision, error) {
 	if jwtUserID == "" {
-		return "", fmt.Errorf("JWT user ID is empty for OS user %q: %w", osUsername, ErrEmptyUserID)
+		return nil, fmt.Errorf("JWT user ID is empty for OS user %q: %w", osUsername, ErrEmptyUserID)
 	}
 
 	// Hash the JWT user ID for comparison
 	hashedUserID, err := sshuserhash.HashUserID(jwtUserID)
 	if err != nil {
-		return "", fmt.Errorf("hash user ID %q for OS user %q: %w", jwtUserID, osUsername, err)
+		return nil, fmt.Errorf("hash user ID %q for OS user %q: %w", jwtUserID, osUsername, err)
 	}
 
 	a.mu.RLock()
@@ -118,7 +159,7 @@ func (a *Authorizer) Authorize(jwtUserID, osUsername string) (string, error) {
 	// Find the index of this user in the authorized list
 	userIndex, found := a.findUserIndex(hashedUserID)
 	if !found {
-		return "", fmt.Errorf("user %q (hash: %s) not in authorized list for OS user %q: %w", jwtUserID, hashedUserID, osUsername, ErrUserNotAuthorized)
+		return nil, fmt.Errorf("user %q (hash: %s) not in authorized list for OS user %q: %w", jwtUserID, hashedUserID, osUsername, ErrUserNotAuthorized)
 	}
 
 	return a.checkMachineUserMapping(jwtUserID, osUsername, userIndex)
@@ -126,11 +167,11 @@ func (a *Authorizer) Authorize(jwtUserID, osUsername string) (string, error) {
 
 // checkMachineUserMapping validates if a user's index is authorized for the specified OS user
 // Checks wildcard mapping first, then specific OS user mappings
-func (a *Authorizer) checkMachineUserMapping(jwtUserID, osUsername string, userIndex int) (string, error) {
+func (a *Authorizer) checkMachineUserMapping(jwtUserID, osUsername string, userIndex int) (*Decision, error) {
 	// If wildcard exists and user's index is in the wildcard list, allow access to any OS user
 	if wildcardIndexes, hasWildcard := a.machineUsers[Wildcard]; hasWildcard {
 		if a.isIndexInList(uint32(userIndex), wildcardIndexes) {
-			return fmt.Sprintf("granted via wildcard (index: %d)", userIndex), nil
+			return a.decision(fmt.Sprintf("granted via wildcard (index: %d)", userIndex)), nil
 		}
 	}
 
@@ -138,15 +179,42 @@ func (a *Authorizer) checkMachineUserMapping(jwtUserID, osUsername string, userI
 	allowedIndexes, hasMachineUserMapping := a.machineUsers[osUsername]
 	if !hasMachineUserMapping {
 		// No mapping for this OS user - deny by default (fail closed)
-		return "", fmt.Errorf("no machine user mapping for OS user %q (JWT user: %s): %w", osUsername, jwtUserID, ErrNoMachineUserMapping)
+		return nil, fmt.Errorf("no machine user mapping for OS user %q (JWT user: %s): %w", osUsername, jwtUserID, ErrNoMachineUserMapping)
 	}
 
 	// Check if user's index is in the allowed indexes for this specific OS user
 	if !a.isIndexInList(uint32(userIndex), allowedIndexes) {
-		return "", fmt.Errorf("user %q not mapped to OS user %q (index: %d): %w", jwtUserID, osUsername, userIndex, ErrUserNotMappedToOSUser)
+		return nil, fmt.Errorf("user %q not mapped to OS user %q (index: %d): %w", jwtUserID, osUsername, userIndex, ErrUserNotMappedToOSUser)
 	}
 
-	return fmt.Sprintf("granted (index: %d)", userIndex), nil
+	return a.decision(fmt.Sprintf("granted (index: %d)", userIndex)), nil
+}
+
+// decision builds a granted Decision; recording is server-wide. Caller must hold a.mu (read).
+func (a *Authorizer) decision(message string) *Decision {
+	if a.recorderAddr == "" {
+		return &Decision{Message: message}
+	}
+	return &Decision{Message: message, RequireRecording: true, RecorderAddr: a.recorderAddr}
+}
+
+// RecordingRequired returns whether recording is on and the recorder address.
+// Server-wide; valid for all channels, with or without JWT auth.
+func (a *Authorizer) RecordingRequired() (required bool, recorderAddr string) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.recorderAddr != "", a.recorderAddr
+}
+
+// LoginBanner returns the recording banner, or "" if not shown.
+func (a *Authorizer) LoginBanner() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if a.recorderAddr == "" || a.bannerDisabled {
+		return ""
+	}
+	return loginBannerMessage
 }
 
 // GetUserIDClaim returns the JWT claim name used to extract user IDs
@@ -171,6 +239,8 @@ func (a *Authorizer) Config() *Config {
 		UserIDClaim:     a.userIDClaim,
 		AuthorizedUsers: slices.Clone(a.authorizedUsers),
 		MachineUsers:    machineUsers,
+		RecorderAddr:    a.recorderAddr,
+		BannerDisabled:  a.bannerDisabled,
 	}
 }
 

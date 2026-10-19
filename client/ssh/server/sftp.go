@@ -42,6 +42,19 @@ func (s *Server) sftpSubsystemHandler(sess ssh.Session) {
 		return
 	}
 
+	// SFTP can't be captured in asciicast, so refuse it while recording is
+	// mandatory rather than let file transfers bypass recording.
+	if required, _ := s.recordingRequired(); required {
+		logger.Debug("SFTP subsystem request denied: SSH session recording is required and SFTP cannot be recorded")
+		if _, err := fmt.Fprintln(sess.Stderr(), "SFTP is not available while SSH session recording is required"); err != nil {
+			logger.Debugf("write SFTP denial message: %v", err)
+		}
+		if err := sess.Exit(1); err != nil {
+			logger.Debugf("SFTP session exit: %v", err)
+		}
+		return
+	}
+
 	result := s.CheckPrivileges(PrivilegeCheckRequest{
 		RequestedUsername:         sess.User(),
 		FeatureSupportsUserSwitch: true,

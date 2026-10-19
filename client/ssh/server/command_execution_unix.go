@@ -20,6 +20,8 @@ import (
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/netbirdio/netbird/client/ssh/server/recording"
 )
 
 // ptyManager manages Pty file operations with thread safety
@@ -118,8 +120,13 @@ func (s *Server) createSuCommand(logger *log.Entry, session ssh.Session, localUs
 	args = append(args, localUser.Username)
 
 	command := session.RawCommand()
-	if command != "" {
+	switch {
+	case command != "":
 		args = append(args, "-c", command)
+	case s.wantInteractiveTrace(hasPty, session):
+		if bashPath := bashForTrace(logger); bashPath != "" {
+			args = append(args, "-c", fmt.Sprintf("exec %s -v", bashPath))
+		}
 	}
 
 	logger.Debugf("creating su command: %s %v", suPath, args)
@@ -127,6 +134,24 @@ func (s *Server) createSuCommand(logger *log.Entry, session ssh.Session, localUs
 	cmd.Dir = localUser.HomeDir
 
 	return cmd, nil
+}
+
+func (s *Server) wantInteractiveTrace(hasPty bool, session ssh.Session) bool {
+	if hasPty || session.RawCommand() != "" {
+		return false
+	}
+	required, _ := s.recordingRequired()
+	return required
+}
+
+// bashForTrace returns bash's path, or "" to fall back to the user's shell.
+func bashForTrace(logger *log.Entry) string {
+	path, err := exec.LookPath("bash")
+	if err != nil {
+		logger.Debugf("bash not found, cannot trace commands for an interactive recorded session: %v", err)
+		return ""
+	}
+	return path
 }
 
 // getShellCommandArgs returns the shell command and arguments for executing a command string.
@@ -203,10 +228,29 @@ func (s *Server) runPtyCommand(logger *log.Entry, session ssh.Session, execCmd *
 		}
 	}()
 
-	go s.handlePtyWindowResize(logger, session, ptyMgr, winCh)
-	s.handlePtyIO(logger, session, ptyMgr)
-	s.waitForPtyCompletion(logger, session, execCmd, ptyMgr)
+	cols, rows := ptySize(ptyReq)
+	recSession, err := s.startRecordingIfRequired(logger, session, cols, rows)
+	if err != nil {
+		denyRecordingRequired(logger, session)
+		return false
+	}
+
+	outputDone, failWriter := s.handlePtyIO(logger, session, ptyMgr, recSession)
+	go s.handlePtyWindowResize(logger, session, ptyMgr, winCh, failWriter)
+	s.waitForPtyCompletion(logger, session, execCmd, ptyMgr, recSession, outputDone, failWriter)
 	return true
+}
+
+// ptySize returns the PTY size (default 80x24).
+func ptySize(ptyReq ssh.Pty) (cols, rows uint32) {
+	cols, rows = uint32(ptyReq.Window.Width), uint32(ptyReq.Window.Height)
+	if cols == 0 {
+		cols = defaultRecordingCols
+	}
+	if rows == 0 {
+		rows = defaultRecordingRows
+	}
+	return cols, rows
 }
 
 func (s *Server) startPtyCommandWithSize(execCmd *exec.Cmd, ptyReq ssh.Pty) (*os.File, error) {
@@ -215,10 +259,10 @@ func (s *Server) startPtyCommandWithSize(execCmd *exec.Cmd, ptyReq ssh.Pty) (*os
 		Rows: uint16(ptyReq.Window.Height),
 	}
 	if winSize.Cols == 0 {
-		winSize.Cols = 80
+		winSize.Cols = defaultRecordingCols
 	}
 	if winSize.Rows == 0 {
-		winSize.Rows = 24
+		winSize.Rows = defaultRecordingRows
 	}
 
 	ptmx, err := pty.StartWithSize(execCmd, winSize)
@@ -229,7 +273,7 @@ func (s *Server) startPtyCommandWithSize(execCmd *exec.Cmd, ptyReq ssh.Pty) (*os
 	return ptmx, nil
 }
 
-func (s *Server) handlePtyWindowResize(logger *log.Entry, session ssh.Session, ptyMgr *ptyManager, winCh <-chan ssh.Window) {
+func (s *Server) handlePtyWindowResize(logger *log.Entry, session ssh.Session, ptyMgr *ptyManager, winCh <-chan ssh.Window, failWriter *recordingFailWriter) {
 	for {
 		select {
 		case <-session.Context().Done():
@@ -241,11 +285,16 @@ func (s *Server) handlePtyWindowResize(logger *log.Entry, session ssh.Session, p
 			if err := ptyMgr.Setsize(&pty.Winsize{Rows: uint16(win.Height), Cols: uint16(win.Width)}); err != nil {
 				logger.Debugf("Pty resize to %dx%d: %v", win.Width, win.Height, err)
 			}
+			if failWriter != nil {
+				if err := failWriter.Resize(uint32(win.Width), uint32(win.Height)); err != nil {
+					logger.Debugf("recording resize event: %v", err)
+				}
+			}
 		}
 	}
 }
 
-func (s *Server) handlePtyIO(logger *log.Entry, session ssh.Session, ptyMgr *ptyManager) {
+func (s *Server) handlePtyIO(logger *log.Entry, session ssh.Session, ptyMgr *ptyManager, recSession *recording.Session) (outputDone <-chan struct{}, failWriter *recordingFailWriter) {
 	ptmx := ptyMgr.File()
 
 	go func() {
@@ -256,31 +305,79 @@ func (s *Server) handlePtyIO(logger *log.Entry, session ssh.Session, ptyMgr *pty
 		}
 	}()
 
+	if recSession != nil {
+		failWriter = newRecordingFailWriter(recSession)
+	}
+
+	done := make(chan struct{})
 	go func() {
-		if _, err := io.Copy(session, ptmx); err != nil {
+		defer close(done)
+		var out io.Writer = session
+		if failWriter != nil {
+			out = io.MultiWriter(session, failWriter)
+		}
+		if _, err := io.Copy(out, ptmx); err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, syscall.EIO) {
 				logger.Warnf("Pty output copy error: %v", err)
 			}
 		}
 	}()
+
+	return done, failWriter
 }
 
-func (s *Server) waitForPtyCompletion(logger *log.Entry, session ssh.Session, execCmd *exec.Cmd, ptyMgr *ptyManager) {
+func waitOutputDrained(logger *log.Entry, outputDone <-chan struct{}, recSession *recording.Session) {
+	if recSession == nil {
+		return
+	}
+	select {
+	case <-outputDone:
+	case <-time.After(2 * time.Second):
+		logger.Warn("timed out waiting for PTY output to drain before closing recording")
+	}
+}
+
+func (s *Server) waitForPtyCompletion(logger *log.Entry, session ssh.Session, execCmd *exec.Cmd, ptyMgr *ptyManager, recSession *recording.Session, outputDone <-chan struct{}, failWriter *recordingFailWriter) {
 	ctx := session.Context()
 	done := make(chan error, 1)
 	go func() {
 		done <- execCmd.Wait()
 	}()
 
+	var recordingFailed <-chan struct{}
+	if failWriter != nil {
+		recordingFailed = failWriter.failed
+	}
+
 	select {
 	case <-ctx.Done():
-		s.handlePtySessionCancellation(logger, session, execCmd, ptyMgr, done)
+		s.handlePtySessionCancellation(logger, session, execCmd, ptyMgr, done, recSession, outputDone)
+	case <-recordingFailed:
+		s.handleRecordingLost(logger, session, execCmd, ptyMgr, done, recSession, outputDone, failWriter.err)
 	case err := <-done:
-		s.handlePtyCommandCompletion(logger, session, ptyMgr, err)
+		s.handlePtyCommandCompletion(logger, session, ptyMgr, err, recSession, outputDone)
 	}
 }
 
-func (s *Server) handlePtySessionCancellation(logger *log.Entry, session ssh.Session, execCmd *exec.Cmd, ptyMgr *ptyManager, done <-chan error) {
+func (s *Server) handleRecordingLost(logger *log.Entry, session ssh.Session, execCmd *exec.Cmd, ptyMgr *ptyManager, done <-chan error, recSession *recording.Session, outputDone <-chan struct{}, cause error) {
+	logger.Warnf("recording connection lost mid-session; terminating session (recording was required): %v", cause)
+	if err := ptyMgr.Close(); err != nil {
+		logger.Debugf("Pty close after recording loss: %v", err)
+	}
+	s.killProcessGroup(execCmd)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		logger.Warnf("command did not terminate within 5 seconds after recording loss")
+	}
+
+	waitOutputDrained(logger, outputDone, recSession)
+	closeRecording(recSession, 1)
+	denyRecordingLost(logger, session, cause)
+}
+
+func (s *Server) handlePtySessionCancellation(logger *log.Entry, session ssh.Session, execCmd *exec.Cmd, ptyMgr *ptyManager, done <-chan error, recSession *recording.Session, outputDone <-chan struct{}) {
 	logger.Debugf("Pty session cancelled, terminating command")
 	if err := ptyMgr.Close(); err != nil {
 		logger.Debugf("Pty close during session cancellation: %v", err)
@@ -299,12 +396,17 @@ func (s *Server) handlePtySessionCancellation(logger *log.Entry, session ssh.Ses
 		logger.Warnf("Pty command did not terminate within 5 seconds after session cancellation")
 	}
 
+	waitOutputDrained(logger, outputDone, recSession)
+	closeRecording(recSession, 130)
 	if err := session.Exit(130); err != nil {
 		logSessionExitError(logger, err)
 	}
 }
 
-func (s *Server) handlePtyCommandCompletion(logger *log.Entry, session ssh.Session, ptyMgr *ptyManager, err error) {
+func (s *Server) handlePtyCommandCompletion(logger *log.Entry, session ssh.Session, ptyMgr *ptyManager, err error, recSession *recording.Session, outputDone <-chan struct{}) {
+	waitOutputDrained(logger, outputDone, recSession)
+	closeRecording(recSession, int32(exitCodeFromError(err)))
+
 	if err != nil {
 		logger.Debugf("Pty command execution failed: %v", err)
 		s.handleSessionExit(session, err, logger)

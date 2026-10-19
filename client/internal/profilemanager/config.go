@@ -73,6 +73,8 @@ type ConfigInput struct {
 	EnableSSHRemotePortForwarding *bool
 	DisableSSHAuth                *bool
 	SSHJWTCacheTTL                *int
+	SSHSessionRecorder            *string
+	DisableRecorderBanner         *bool
 	NATExternalIPs                []string
 	CustomDNSAddress              []byte
 	RosenpassEnabled              *bool
@@ -131,6 +133,8 @@ type Config struct {
 	EnableSSHRemotePortForwarding *bool
 	DisableSSHAuth                *bool
 	SSHJWTCacheTTL                *int
+	SSHSessionRecorder            string
+	DisableRecorderBanner         bool
 
 	DisableClientRoutes bool
 	DisableServerRoutes bool
@@ -579,6 +583,33 @@ func (config *Config) apply(input ConfigInput) (updated bool, err error) {
 	if input.SSHJWTCacheTTL != nil && (config.SSHJWTCacheTTL == nil || *input.SSHJWTCacheTTL != *config.SSHJWTCacheTTL) {
 		log.Infof("updating SSH JWT cache TTL to %d seconds", *input.SSHJWTCacheTTL)
 		config.SSHJWTCacheTTL = input.SSHJWTCacheTTL
+		updated = true
+	}
+
+	if input.SSHSessionRecorder != nil && *input.SSHSessionRecorder != config.SSHSessionRecorder {
+		recorder := *input.SSHSessionRecorder
+		if recorder != "" {
+			if net.ParseIP(recorder) == nil {
+				return updated, fmt.Errorf("invalid --ssh-session-recorder %q: must be an IP address", recorder)
+			}
+			if !util.ReturnBoolWithDefaultTrue(config.ServerSSHAllowed) {
+				return updated, fmt.Errorf("--ssh-session-recorder requires --allow-server-ssh")
+			}
+			log.Infof("setting SSH session recorder to %s", recorder)
+		} else {
+			log.Infof("clearing SSH session recorder")
+		}
+		config.SSHSessionRecorder = recorder
+		updated = true
+	}
+
+	if input.DisableRecorderBanner != nil && *input.DisableRecorderBanner != config.DisableRecorderBanner {
+		if *input.DisableRecorderBanner {
+			log.Infof("disabling the SSH session recording banner")
+		} else {
+			log.Infof("enabling the SSH session recording banner")
+		}
+		config.DisableRecorderBanner = *input.DisableRecorderBanner
 		updated = true
 	}
 

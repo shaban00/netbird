@@ -37,6 +37,8 @@ const (
 	enableSSHRemotePortForwardFlag = "enable-ssh-remote-port-forwarding"
 	disableSSHAuthFlag             = "disable-ssh-auth"
 	sshJWTCacheTTLFlag             = "ssh-jwt-cache-ttl"
+	sshSessionRecorderFlag         = "ssh-session-recorder"
+	disableRecorderBannerFlag      = "disable-recorder-banner"
 )
 
 var (
@@ -62,6 +64,8 @@ var (
 	enableSSHRemotePortForward bool
 	disableSSHAuth             bool
 	sshJWTCacheTTL             int
+	sshSessionRecorder         string
+	disableRecorderBanner      bool
 )
 
 func init() {
@@ -72,6 +76,8 @@ func init() {
 	upCmd.PersistentFlags().BoolVar(&enableSSHRemotePortForward, enableSSHRemotePortForwardFlag, false, "Enable remote port forwarding for SSH server")
 	upCmd.PersistentFlags().BoolVar(&disableSSHAuth, disableSSHAuthFlag, false, "Disable SSH authentication")
 	upCmd.PersistentFlags().IntVar(&sshJWTCacheTTL, sshJWTCacheTTLFlag, 0, "SSH JWT token cache TTL in seconds (0=disabled)")
+	upCmd.PersistentFlags().StringVar(&sshSessionRecorder, sshSessionRecorderFlag, "", "NetBird IP of a peer to stream SSH session output to; requires --allow-server-ssh")
+	upCmd.PersistentFlags().BoolVar(&disableRecorderBanner, disableRecorderBannerFlag, false, "Disable the login banner shown when --ssh-session-recorder is active")
 
 	sshCmd.PersistentFlags().IntVarP(&port, "port", "p", sshserver.DefaultSSHPort, "Remote SSH port")
 	sshCmd.PersistentFlags().StringVarP(&username, "user", "u", "", sshUsernameDesc)

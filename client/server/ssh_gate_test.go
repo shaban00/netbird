@@ -163,6 +163,68 @@ func TestRequirePrivilegeForConfigChange_SSHFlags(t *testing.T) {
 			change: privilegedConfigChange{enableSSHRoot: boolPtr(false)},
 		},
 		{
+			name:     "setting the ssh session recorder unprivileged is refused",
+			stored:   &profilemanager.Config{},
+			change:   privilegedConfigChange{sshSessionRecorder: strPtr("100.64.0.5")},
+			wantDeny: true,
+		},
+		{
+			name:       "setting the ssh session recorder as root is allowed",
+			stored:     &profilemanager.Config{},
+			change:     privilegedConfigChange{sshSessionRecorder: strPtr("100.64.0.5")},
+			privileged: true,
+		},
+		{
+			name:   "restating the same ssh session recorder is not a change",
+			stored: &profilemanager.Config{SSHSessionRecorder: "100.64.0.5"},
+			change: privilegedConfigChange{sshSessionRecorder: strPtr("100.64.0.5")},
+		},
+		{
+			name:     "repointing the ssh session recorder unprivileged is refused",
+			stored:   &profilemanager.Config{SSHSessionRecorder: "100.64.0.5"},
+			change:   privilegedConfigChange{sshSessionRecorder: strPtr("100.64.0.6")},
+			wantDeny: true,
+		},
+		{
+			name:     "clearing the ssh session recorder unprivileged is refused",
+			stored:   &profilemanager.Config{SSHSessionRecorder: "100.64.0.5"},
+			change:   privilegedConfigChange{sshSessionRecorder: strPtr("")},
+			wantDeny: true,
+		},
+		{
+			name:       "clearing the ssh session recorder as root is allowed",
+			stored:     &profilemanager.Config{SSHSessionRecorder: "100.64.0.5"},
+			change:     privilegedConfigChange{sshSessionRecorder: strPtr("")},
+			privileged: true,
+		},
+		{
+			name:   "clearing an already-empty ssh session recorder is not a change",
+			stored: &profilemanager.Config{},
+			change: privilegedConfigChange{sshSessionRecorder: strPtr("")},
+		},
+		{
+			name:     "disabling the recording banner unprivileged is refused",
+			stored:   &profilemanager.Config{},
+			change:   privilegedConfigChange{disableRecorderBanner: boolPtr(true)},
+			wantDeny: true,
+		},
+		{
+			name:       "disabling the recording banner as root is allowed",
+			stored:     &profilemanager.Config{},
+			change:     privilegedConfigChange{disableRecorderBanner: boolPtr(true)},
+			privileged: true,
+		},
+		{
+			name:   "restating an already-disabled banner is not a change",
+			stored: &profilemanager.Config{DisableRecorderBanner: true},
+			change: privilegedConfigChange{disableRecorderBanner: boolPtr(true)},
+		},
+		{
+			name:   "re-enabling the recording banner is not guarded",
+			stored: &profilemanager.Config{DisableRecorderBanner: true},
+			change: privilegedConfigChange{disableRecorderBanner: boolPtr(false)},
+		},
+		{
 			name:     "disabling ssh authentication unprivileged is refused",
 			stored:   &profilemanager.Config{DisableSSHAuth: boolPtr(false)},
 			change:   privilegedConfigChange{disableSSHAuth: boolPtr(true)},

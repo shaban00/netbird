@@ -152,6 +152,8 @@ type EngineConfig struct {
 	EnableSSHLocalPortForwarding  *bool
 	EnableSSHRemotePortForwarding *bool
 	DisableSSHAuth                *bool
+	SSHSessionRecorder            string
+	DisableRecorderBanner         bool
 
 	DNSRouteInterval time.Duration
 

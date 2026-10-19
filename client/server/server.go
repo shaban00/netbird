@@ -632,6 +632,8 @@ func (s *Server) setConfigInputFromRequest(msg *proto.SetConfigRequest) (profile
 		ttl := int(*msg.SshJWTCacheTTL)
 		config.SSHJWTCacheTTL = &ttl
 	}
+	config.SSHSessionRecorder = msg.SshSessionRecorder
+	config.DisableRecorderBanner = msg.DisableRecorderBanner
 	if msg.Mtu != nil {
 		mtu := uint16(*msg.Mtu)
 		config.MTU = &mtu
@@ -2286,6 +2288,8 @@ func (s *Server) GetConfig(ctx context.Context, req *proto.GetConfigRequest) (*p
 		EnableSSHRemotePortForwarding: enableSSHRemotePortForwarding,
 		DisableSSHAuth:                disableSSHAuth,
 		SshJWTCacheTTL:                sshJWTCacheTTL,
+		SshSessionRecorder:            cfg.SSHSessionRecorder,
+		DisableRecorderBanner:         cfg.DisableRecorderBanner,
 		MDMManagedFields:              cfg.Policy().ManagedKeys(),
 	}, nil
 }

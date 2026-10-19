@@ -77,42 +77,46 @@ func TestSetConfig_AllFieldsSaved(t *testing.T) {
 	disableIPv6 := true
 	mtu := int64(1280)
 	sshJWTCacheTTL := int32(300)
+	sshSessionRecorder := "100.64.0.5"
+	disableRecorderBanner := true
 	enableLocalMetrics := true
 	localMetricsAddress := "127.0.0.1:9292"
 
 	req := &proto.SetConfigRequest{
-		ProfileName:          profName,
-		Username:             currUser.Username,
-		ManagementUrl:        "https://new-api.netbird.io:443",
-		AdminURL:             "https://new-admin.netbird.io",
-		RosenpassEnabled:     &rosenpassEnabled,
-		RosenpassPermissive:  &rosenpassPermissive,
-		ServerSSHAllowed:     &serverSSHAllowed,
-		RemoteJobsAllowed:    &remoteJobsAllowed,
-		InterfaceName:        &interfaceName,
-		WireguardPort:        &wireguardPort,
-		OptionalPreSharedKey: &preSharedKey,
-		DisableAutoConnect:   &disableAutoConnect,
-		NetworkMonitor:       &networkMonitor,
-		DisableClientRoutes:  &disableClientRoutes,
-		DisableServerRoutes:  &disableServerRoutes,
-		DisableDns:           &disableDNS,
-		DisableFirewall:      &disableFirewall,
-		BlockLanAccess:       &blockLANAccess,
-		DisableNotifications: &disableNotifications,
-		BlockInbound:         &blockInbound,
-		DisableIpv6:          &disableIPv6,
-		NatExternalIPs:       []string{"1.2.3.4", "5.6.7.8"},
-		CleanNATExternalIPs:  false,
-		CustomDNSAddress:     []byte("1.1.1.1:53"),
-		ExtraIFaceBlacklist:  []string{"eth1", "eth2"},
-		DnsLabels:            []string{"label1", "label2"},
-		CleanDNSLabels:       false,
-		DnsRouteInterval:     durationpb.New(2 * time.Minute),
-		Mtu:                  &mtu,
-		SshJWTCacheTTL:       &sshJWTCacheTTL,
-		EnableLocalMetrics:   &enableLocalMetrics,
-		LocalMetricsAddress:  &localMetricsAddress,
+		ProfileName:           profName,
+		Username:              currUser.Username,
+		ManagementUrl:         "https://new-api.netbird.io:443",
+		AdminURL:              "https://new-admin.netbird.io",
+		RosenpassEnabled:      &rosenpassEnabled,
+		RosenpassPermissive:   &rosenpassPermissive,
+		ServerSSHAllowed:      &serverSSHAllowed,
+		RemoteJobsAllowed:     &remoteJobsAllowed,
+		InterfaceName:         &interfaceName,
+		WireguardPort:         &wireguardPort,
+		OptionalPreSharedKey:  &preSharedKey,
+		DisableAutoConnect:    &disableAutoConnect,
+		NetworkMonitor:        &networkMonitor,
+		DisableClientRoutes:   &disableClientRoutes,
+		DisableServerRoutes:   &disableServerRoutes,
+		DisableDns:            &disableDNS,
+		DisableFirewall:       &disableFirewall,
+		BlockLanAccess:        &blockLANAccess,
+		DisableNotifications:  &disableNotifications,
+		BlockInbound:          &blockInbound,
+		DisableIpv6:           &disableIPv6,
+		NatExternalIPs:        []string{"1.2.3.4", "5.6.7.8"},
+		CleanNATExternalIPs:   false,
+		CustomDNSAddress:      []byte("1.1.1.1:53"),
+		ExtraIFaceBlacklist:   []string{"eth1", "eth2"},
+		DnsLabels:             []string{"label1", "label2"},
+		CleanDNSLabels:        false,
+		DnsRouteInterval:      durationpb.New(2 * time.Minute),
+		Mtu:                   &mtu,
+		SshJWTCacheTTL:        &sshJWTCacheTTL,
+		SshSessionRecorder:    &sshSessionRecorder,
+		DisableRecorderBanner: &disableRecorderBanner,
+		EnableLocalMetrics:    &enableLocalMetrics,
+		LocalMetricsAddress:   &localMetricsAddress,
 	}
 
 	_, err = s.SetConfig(ctx, req)
@@ -161,6 +165,8 @@ func TestSetConfig_AllFieldsSaved(t *testing.T) {
 	require.Equal(t, uint16(mtu), cfg.MTU)
 	require.NotNil(t, cfg.SSHJWTCacheTTL)
 	require.Equal(t, int(sshJWTCacheTTL), *cfg.SSHJWTCacheTTL)
+	require.Equal(t, sshSessionRecorder, cfg.SSHSessionRecorder)
+	require.Equal(t, disableRecorderBanner, cfg.DisableRecorderBanner)
 	require.Equal(t, enableLocalMetrics, cfg.LocalMetricsEnabled)
 	require.Equal(t, localMetricsAddress, cfg.LocalMetricsAddress)
 
@@ -216,6 +222,8 @@ func verifyAllFieldsCovered(t *testing.T, req *proto.SetConfigRequest) {
 		"EnableSSHRemotePortForwarding": true,
 		"DisableSSHAuth":                true,
 		"SshJWTCacheTTL":                true,
+		"SshSessionRecorder":            true,
+		"DisableRecorderBanner":         true,
 		"EnableLocalMetrics":            true,
 		"LocalMetricsAddress":           true,
 	}
@@ -278,6 +286,8 @@ func TestCLIFlags_MappedToSetConfig(t *testing.T) {
 		"enable-ssh-remote-port-forwarding": "EnableSSHRemotePortForwarding",
 		"disable-ssh-auth":                  "DisableSSHAuth",
 		"ssh-jwt-cache-ttl":                 "SshJWTCacheTTL",
+		"ssh-session-recorder":              "SshSessionRecorder",
+		"disable-recorder-banner":           "DisableRecorderBanner",
 		"enable-local-metrics":              "EnableLocalMetrics",
 		"local-metrics-address":             "LocalMetricsAddress",
 	}

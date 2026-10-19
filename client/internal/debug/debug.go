@@ -732,6 +732,10 @@ func (g *BundleGenerator) addCommonConfigFields(configContent *strings.Builder) 
 	if g.internalConfig.SSHJWTCacheTTL != nil {
 		configContent.WriteString(fmt.Sprintf("SSHJWTCacheTTL: %d\n", *g.internalConfig.SSHJWTCacheTTL))
 	}
+	if g.internalConfig.SSHSessionRecorder != "" {
+		configContent.WriteString(fmt.Sprintf("SSHSessionRecorder: %s\n", g.anonymizer.AnonymizeIPString(g.internalConfig.SSHSessionRecorder)))
+		configContent.WriteString(fmt.Sprintf("DisableRecorderBanner: %v\n", g.internalConfig.DisableRecorderBanner))
+	}
 
 	configContent.WriteString(fmt.Sprintf("DisableClientRoutes: %v\n", g.internalConfig.DisableClientRoutes))
 	configContent.WriteString(fmt.Sprintf("DisableServerRoutes: %v\n", g.internalConfig.DisableServerRoutes))

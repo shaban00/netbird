@@ -158,6 +158,13 @@ func (s *Server) tcpipForwardHandler(ctx ssh.Context, _ *ssh.Server, req *crypto
 		return false, nil
 	}
 
+	// Same reasoning as local port forwarding (directTCPIPHandler, server.go):
+	// forwarded traffic can't be recorded, so it's refused outright while recording is mandatory.
+	if required, _ := s.recordingRequired(); required {
+		logger.Warnf("tcpip-forward request denied: SSH session recording is required and forwarded traffic cannot be recorded")
+		return false, nil
+	}
+
 	payload, err := s.parseTcpipForwardRequest(req)
 	if err != nil {
 		logger.Errorf("tcpip-forward unmarshal error: %v", err)

@@ -348,8 +348,12 @@ type LoginRequest struct {
 	// remoteJobsAllowed opts the peer into management-requested remote jobs
 	// (e.g. debug bundles). Absent leaves the stored value unchanged.
 	RemoteJobsAllowed *bool `protobuf:"varint,43,opt,name=remoteJobsAllowed,proto3,oneof" json:"remoteJobsAllowed,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// sshSessionRecorder is the NetBird IP of the peer that records SSH session output.
+	SshSessionRecorder *string `protobuf:"bytes,44,opt,name=sshSessionRecorder,proto3,oneof" json:"sshSessionRecorder,omitempty"`
+	// disableRecorderBanner hides the recording notice banner; false keeps the stored value.
+	DisableRecorderBanner *bool `protobuf:"varint,45,opt,name=disableRecorderBanner,proto3,oneof" json:"disableRecorderBanner,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *LoginRequest) Reset() {
@@ -680,6 +684,20 @@ func (x *LoginRequest) GetLocalMetricsAddress() string {
 func (x *LoginRequest) GetRemoteJobsAllowed() bool {
 	if x != nil && x.RemoteJobsAllowed != nil {
 		return *x.RemoteJobsAllowed
+	}
+	return false
+}
+
+func (x *LoginRequest) GetSshSessionRecorder() string {
+	if x != nil && x.SshSessionRecorder != nil {
+		return *x.SshSessionRecorder
+	}
+	return ""
+}
+
+func (x *LoginRequest) GetDisableRecorderBanner() bool {
+	if x != nil && x.DisableRecorderBanner != nil {
+		return *x.DisableRecorderBanner
 	}
 	return false
 }
@@ -1242,6 +1260,10 @@ type GetConfigResponse struct {
 	SshJWTCacheTTL                int32  `protobuf:"varint,26,opt,name=sshJWTCacheTTL,proto3" json:"sshJWTCacheTTL,omitempty"`
 	DisableIpv6                   bool   `protobuf:"varint,27,opt,name=disable_ipv6,json=disableIpv6,proto3" json:"disable_ipv6,omitempty"`
 	RemoteJobsAllowed             bool   `protobuf:"varint,29,opt,name=remoteJobsAllowed,proto3" json:"remoteJobsAllowed,omitempty"`
+	// sshSessionRecorder is the NetBird IP of the peer that records SSH session output.
+	SshSessionRecorder string `protobuf:"bytes,30,opt,name=sshSessionRecorder,proto3" json:"sshSessionRecorder,omitempty"`
+	// disableRecorderBanner hides the recording notice banner; false keeps the stored value.
+	DisableRecorderBanner bool `protobuf:"varint,31,opt,name=disableRecorderBanner,proto3" json:"disableRecorderBanner,omitempty"`
 	// mDMManagedFields lists the names of configuration keys whose value is
 	// currently enforced by an MDM policy. Names match mdm.Key* constants
 	// (e.g. "managementURL", "disableClientRoutes"). UI/CLI clients should
@@ -1474,6 +1496,20 @@ func (x *GetConfigResponse) GetDisableIpv6() bool {
 func (x *GetConfigResponse) GetRemoteJobsAllowed() bool {
 	if x != nil {
 		return x.RemoteJobsAllowed
+	}
+	return false
+}
+
+func (x *GetConfigResponse) GetSshSessionRecorder() string {
+	if x != nil {
+		return x.SshSessionRecorder
+	}
+	return ""
+}
+
+func (x *GetConfigResponse) GetDisableRecorderBanner() bool {
+	if x != nil {
+		return x.DisableRecorderBanner
 	}
 	return false
 }
@@ -4272,8 +4308,12 @@ type SetConfigRequest struct {
 	// remoteJobsAllowed opts the peer into management-requested remote jobs
 	// (e.g. debug bundles). Absent leaves the stored value unchanged.
 	RemoteJobsAllowed *bool `protobuf:"varint,38,opt,name=remoteJobsAllowed,proto3,oneof" json:"remoteJobsAllowed,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// sshSessionRecorder is the NetBird IP of the peer that records SSH session output.
+	SshSessionRecorder *string `protobuf:"bytes,39,opt,name=sshSessionRecorder,proto3,oneof" json:"sshSessionRecorder,omitempty"`
+	// disableRecorderBanner hides the recording notice banner; false keeps the stored value.
+	DisableRecorderBanner *bool `protobuf:"varint,40,opt,name=disableRecorderBanner,proto3,oneof" json:"disableRecorderBanner,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *SetConfigRequest) Reset() {
@@ -4568,6 +4608,20 @@ func (x *SetConfigRequest) GetLocalMetricsAddress() string {
 func (x *SetConfigRequest) GetRemoteJobsAllowed() bool {
 	if x != nil && x.RemoteJobsAllowed != nil {
 		return *x.RemoteJobsAllowed
+	}
+	return false
+}
+
+func (x *SetConfigRequest) GetSshSessionRecorder() string {
+	if x != nil && x.SshSessionRecorder != nil {
+		return *x.SshSessionRecorder
+	}
+	return ""
+}
+
+func (x *SetConfigRequest) GetDisableRecorderBanner() bool {
+	if x != nil && x.DisableRecorderBanner != nil {
+		return *x.DisableRecorderBanner
 	}
 	return false
 }
@@ -7394,7 +7448,7 @@ var File_daemon_proto protoreflect.FileDescriptor
 const file_daemon_proto_rawDesc = "" +
 	"\n" +
 	"\fdaemon.proto\x12\x06daemon\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"\x0e\n" +
-	"\fEmptyRequest\"\xdb\x14\n" +
+	"\fEmptyRequest\"\xfc\x15\n" +
 	"\fLoginRequest\x12\x1a\n" +
 	"\bsetupKey\x18\x01 \x01(\tR\bsetupKey\x12&\n" +
 	"\fpreSharedKey\x18\x02 \x01(\tB\x02\x18\x01R\fpreSharedKey\x12$\n" +
@@ -7442,7 +7496,9 @@ const file_daemon_proto_rawDesc = "" +
 	"\fdisable_ipv6\x18( \x01(\bH\x1bR\vdisableIpv6\x88\x01\x01\x125\n" +
 	"\x14enable_local_metrics\x18) \x01(\bH\x1cR\x12enableLocalMetrics\x88\x01\x01\x127\n" +
 	"\x15local_metrics_address\x18* \x01(\tH\x1dR\x13localMetricsAddress\x88\x01\x01\x121\n" +
-	"\x11remoteJobsAllowed\x18+ \x01(\bH\x1eR\x11remoteJobsAllowed\x88\x01\x01B\x13\n" +
+	"\x11remoteJobsAllowed\x18+ \x01(\bH\x1eR\x11remoteJobsAllowed\x88\x01\x01\x123\n" +
+	"\x12sshSessionRecorder\x18, \x01(\tH\x1fR\x12sshSessionRecorder\x88\x01\x01\x129\n" +
+	"\x15disableRecorderBanner\x18- \x01(\bH R\x15disableRecorderBanner\x88\x01\x01B\x13\n" +
 	"\x11_rosenpassEnabledB\x10\n" +
 	"\x0e_interfaceNameB\x10\n" +
 	"\x0e_wireguardPortB\x17\n" +
@@ -7473,7 +7529,9 @@ const file_daemon_proto_rawDesc = "" +
 	"\r_disable_ipv6B\x17\n" +
 	"\x15_enable_local_metricsB\x18\n" +
 	"\x16_local_metrics_addressB\x14\n" +
-	"\x12_remoteJobsAllowed\"\xb5\x01\n" +
+	"\x12_remoteJobsAllowedB\x15\n" +
+	"\x13_sshSessionRecorderB\x18\n" +
+	"\x16_disableRecorderBanner\"\xb5\x01\n" +
 	"\rLoginResponse\x12$\n" +
 	"\rneedsSSOLogin\x18\x01 \x01(\bR\rneedsSSOLogin\x12\x1a\n" +
 	"\buserCode\x18\x02 \x01(\tR\buserCode\x12(\n" +
@@ -7508,7 +7566,8 @@ const file_daemon_proto_rawDesc = "" +
 	"\fDownResponse\"P\n" +
 	"\x10GetConfigRequest\x12 \n" +
 	"\vprofileName\x18\x01 \x01(\tR\vprofileName\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\"\xd8\t\n" +
+	"\busername\x18\x02 \x01(\tR\busername\"\xbe\n" +
+	"\n" +
 	"\x11GetConfigResponse\x12$\n" +
 	"\rmanagementUrl\x18\x01 \x01(\tR\rmanagementUrl\x12\x1e\n" +
 	"\n" +
@@ -7541,7 +7600,9 @@ const file_daemon_proto_rawDesc = "" +
 	"\x0edisableSSHAuth\x18\x19 \x01(\bR\x0edisableSSHAuth\x12&\n" +
 	"\x0esshJWTCacheTTL\x18\x1a \x01(\x05R\x0esshJWTCacheTTL\x12!\n" +
 	"\fdisable_ipv6\x18\x1b \x01(\bR\vdisableIpv6\x12,\n" +
-	"\x11remoteJobsAllowed\x18\x1d \x01(\bR\x11remoteJobsAllowed\x12*\n" +
+	"\x11remoteJobsAllowed\x18\x1d \x01(\bR\x11remoteJobsAllowed\x12.\n" +
+	"\x12sshSessionRecorder\x18\x1e \x01(\tR\x12sshSessionRecorder\x124\n" +
+	"\x15disableRecorderBanner\x18\x1f \x01(\bR\x15disableRecorderBanner\x12*\n" +
 	"\x10mDMManagedFields\x18\x1c \x03(\tR\x10mDMManagedFields\"\x92\x06\n" +
 	"\tPeerState\x12\x0e\n" +
 	"\x02IP\x18\x01 \x01(\tR\x02IP\x12\x16\n" +
@@ -7769,7 +7830,7 @@ const file_daemon_proto_rawDesc = "" +
 	"\f_profileNameB\v\n" +
 	"\t_username\"'\n" +
 	"\x15SwitchProfileResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x84\x13\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xa5\x14\n" +
 	"\x10SetConfigRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12 \n" +
 	"\vprofileName\x18\x02 \x01(\tR\vprofileName\x12$\n" +
@@ -7812,7 +7873,9 @@ const file_daemon_proto_rawDesc = "" +
 	"\fdisable_ipv6\x18# \x01(\bH\x18R\vdisableIpv6\x88\x01\x01\x125\n" +
 	"\x14enable_local_metrics\x18$ \x01(\bH\x19R\x12enableLocalMetrics\x88\x01\x01\x127\n" +
 	"\x15local_metrics_address\x18% \x01(\tH\x1aR\x13localMetricsAddress\x88\x01\x01\x121\n" +
-	"\x11remoteJobsAllowed\x18& \x01(\bH\x1bR\x11remoteJobsAllowed\x88\x01\x01B\x13\n" +
+	"\x11remoteJobsAllowed\x18& \x01(\bH\x1bR\x11remoteJobsAllowed\x88\x01\x01\x123\n" +
+	"\x12sshSessionRecorder\x18' \x01(\tH\x1cR\x12sshSessionRecorder\x88\x01\x01\x129\n" +
+	"\x15disableRecorderBanner\x18( \x01(\bH\x1dR\x15disableRecorderBanner\x88\x01\x01B\x13\n" +
 	"\x11_rosenpassEnabledB\x10\n" +
 	"\x0e_interfaceNameB\x10\n" +
 	"\x0e_wireguardPortB\x17\n" +
@@ -7840,7 +7903,9 @@ const file_daemon_proto_rawDesc = "" +
 	"\r_disable_ipv6B\x17\n" +
 	"\x15_enable_local_metricsB\x18\n" +
 	"\x16_local_metrics_addressB\x14\n" +
-	"\x12_remoteJobsAllowed\"\x13\n" +
+	"\x12_remoteJobsAllowedB\x15\n" +
+	"\x13_sshSessionRecorderB\x18\n" +
+	"\x16_disableRecorderBanner\"\x13\n" +
 	"\x11SetConfigResponse\"Q\n" +
 	"\x11AddProfileRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12 \n" +
