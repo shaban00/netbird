@@ -26,7 +26,11 @@ type Client interface {
 	// ListCloudIntegrations returns every cloud integration this peer is authorized to request credentials for
 	ListCloudIntegrations() (*proto.ListCloudIntegrationsResponse, error)
 	GetDeviceAuthorizationFlow() (*proto.DeviceAuthorizationFlow, error)
-	GetPKCEAuthorizationFlow() (*proto.PKCEAuthorizationFlow, error)
+	// GetPKCEAuthorizationFlow returns the PKCE authorization flow information.
+	//
+	// sessionExtend marks the flow as renewing an existing peer's session rather
+	// than logging one in. See PKCEAuthorizationFlowRequest.
+	GetPKCEAuthorizationFlow(sessionExtend bool) (*proto.PKCEAuthorizationFlow, error)
 	GetServerURL() string
 	// IsHealthy returns the current connection status without blocking.
 	// Used by the engine to monitor connectivity in the background.

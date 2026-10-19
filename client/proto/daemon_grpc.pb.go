@@ -97,6 +97,8 @@ type DaemonServiceClient interface {
 	SelectNetworks(ctx context.Context, in *SelectNetworksRequest, opts ...grpc.CallOption) (*SelectNetworksResponse, error)
 	// Deselect specific routes
 	DeselectNetworks(ctx context.Context, in *SelectNetworksRequest, opts ...grpc.CallOption) (*SelectNetworksResponse, error)
+	// Deprecated: Do not use.
+	// Unused; the ingress port-forwarding feature was discontinued.
 	ForwardingRules(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*ForwardingRulesResponse, error)
 	// DebugBundle creates a debug bundle
 	DebugBundle(ctx context.Context, in *DebugBundleRequest, opts ...grpc.CallOption) (*DebugBundleResponse, error)
@@ -297,6 +299,7 @@ func (c *daemonServiceClient) DeselectNetworks(ctx context.Context, in *SelectNe
 	return out, nil
 }
 
+// Deprecated: Do not use.
 func (c *daemonServiceClient) ForwardingRules(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*ForwardingRulesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ForwardingRulesResponse)
@@ -732,6 +735,8 @@ type DaemonServiceServer interface {
 	SelectNetworks(context.Context, *SelectNetworksRequest) (*SelectNetworksResponse, error)
 	// Deselect specific routes
 	DeselectNetworks(context.Context, *SelectNetworksRequest) (*SelectNetworksResponse, error)
+	// Deprecated: Do not use.
+	// Unused; the ingress port-forwarding feature was discontinued.
 	ForwardingRules(context.Context, *EmptyRequest) (*ForwardingRulesResponse, error)
 	// DebugBundle creates a debug bundle
 	DebugBundle(context.Context, *DebugBundleRequest) (*DebugBundleResponse, error)

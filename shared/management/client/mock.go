@@ -18,7 +18,7 @@ type MockClient struct {
 	RequestCloudCredentialsFunc    func(integrationID, provider string) (*proto.CloudCredentialsResponse, error)
 	ListCloudIntegrationsFunc      func() (*proto.ListCloudIntegrationsResponse, error)
 	GetDeviceAuthorizationFlowFunc func() (*proto.DeviceAuthorizationFlow, error)
-	GetPKCEAuthorizationFlowFunc   func() (*proto.PKCEAuthorizationFlow, error)
+	GetPKCEAuthorizationFlowFunc   func(sessionExtend bool) (*proto.PKCEAuthorizationFlow, error)
 	GetServerURLFunc               func() string
 	HealthCheckFunc                func() error
 	SyncMetaFunc                   func(sysInfo *system.Info) error
@@ -96,11 +96,12 @@ func (m *MockClient) GetDeviceAuthorizationFlow() (*proto.DeviceAuthorizationFlo
 	return m.GetDeviceAuthorizationFlowFunc()
 }
 
-func (m *MockClient) GetPKCEAuthorizationFlow() (*proto.PKCEAuthorizationFlow, error) {
+// GetPKCEAuthorizationFlow returns the PKCE authorization flow information.
+func (m *MockClient) GetPKCEAuthorizationFlow(sessionExtend bool) (*proto.PKCEAuthorizationFlow, error) {
 	if m.GetPKCEAuthorizationFlowFunc == nil {
 		return nil, nil
 	}
-	return m.GetPKCEAuthorizationFlowFunc()
+	return m.GetPKCEAuthorizationFlowFunc(sessionExtend)
 }
 
 func (m *MockClient) HealthCheck() error {
