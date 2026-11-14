@@ -28,6 +28,8 @@ import (
 
 const (
 	sshUsernameDesc      = "SSH username"
+	sshLoginFlag         = "login"
+	sshLoginDeprecation  = "use --user instead"
 	hostArgumentRequired = "host argument required"
 
 	serverSSHAllowedFlag           = "allow-server-ssh"
@@ -81,7 +83,8 @@ func init() {
 
 	sshCmd.PersistentFlags().IntVarP(&port, "port", "p", sshserver.DefaultSSHPort, "Remote SSH port")
 	sshCmd.PersistentFlags().StringVarP(&username, "user", "u", "", sshUsernameDesc)
-	sshCmd.PersistentFlags().StringVar(&username, "login", "", sshUsernameDesc+" (alias for --user)")
+	sshCmd.PersistentFlags().StringVar(&username, sshLoginFlag, "", sshUsernameDesc+" (alias for --user)")
+	_ = sshCmd.PersistentFlags().MarkDeprecated(sshLoginFlag, sshLoginDeprecation)
 	sshCmd.PersistentFlags().BoolVarP(&requestPTY, "tty", "t", false, "Force pseudo-terminal allocation")
 	sshCmd.PersistentFlags().BoolVar(&strictHostKeyChecking, "strict-host-key-checking", true, "Enable strict host key checking (default: true)")
 	sshCmd.PersistentFlags().StringVarP(&knownHostsFile, "known-hosts", "o", "", "Path to known_hosts file (default: ~/.ssh/known_hosts)")
@@ -112,7 +115,6 @@ Port Forwarding:
 SSH Options:
   -p, --port int                       Remote SSH port (default 22)
   -u, --user string                    SSH username
-      --login string                   SSH username (alias for --user)
   -t, --tty                            Force pseudo-terminal allocation
       --strict-host-key-checking       Enable strict host key checking (default: true)
   -o, --known-hosts string             Path to known_hosts file
@@ -120,7 +122,7 @@ SSH Options:
 Examples:
   netbird ssh peer-hostname
   netbird ssh root@peer-hostname
-  netbird ssh --login root peer-hostname
+  netbird ssh --user root peer-hostname
   netbird ssh peer-hostname ls -la
   netbird ssh peer-hostname whoami
   netbird ssh -t peer-hostname tmux                  # Force PTY for tmux/screen
@@ -141,9 +143,6 @@ func sshFn(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		}
 	}
-
-	SetFlagsFromEnvVars(rootCmd)
-	SetFlagsFromEnvVars(cmd)
 
 	cmd.SetOut(cmd.OutOrStdout())
 
@@ -277,7 +276,6 @@ func findSSHCommandPosition(args []string) int {
 }
 
 const (
-	configFlag   = "config"
 	logLevelFlag = "log-level"
 	logFileFlag  = "log-file"
 )
@@ -285,7 +283,6 @@ const (
 // parseGlobalArgs processes the global arguments and sets the corresponding variables
 func parseGlobalArgs(globalArgs []string) {
 	flagHandlers := map[string]func(string){
-		configFlag:   func(value string) { configPath = value },
 		logLevelFlag: func(value string) { logLevel = value },
 		logFileFlag: func(value string) {
 			if !slices.Contains(logFiles, value) {
@@ -295,7 +292,6 @@ func parseGlobalArgs(globalArgs []string) {
 	}
 
 	shortFlags := map[string]string{
-		"c": configFlag,
 		"l": logLevelFlag,
 	}
 
@@ -395,7 +391,6 @@ type sshFlags struct {
 	IdentityFile          string
 	SkipCachedToken       bool
 	NoBrowser             bool
-	ConfigPath            string
 	LogLevel              string
 	LocalForwards         []string
 	RemoteForwards        []string
@@ -404,7 +399,6 @@ type sshFlags struct {
 }
 
 func createSSHFlagSet() (*flag.FlagSet, *sshFlags) {
-	defaultConfigPath := getEnvOrDefault("CONFIG", configPath)
 	defaultLogLevel := getEnvOrDefault("LOG_LEVEL", logLevel)
 	defaultNoBrowser := getBoolEnvOrDefault("NO_BROWSER", false)
 
@@ -417,7 +411,7 @@ func createSSHFlagSet() (*flag.FlagSet, *sshFlags) {
 	fs.IntVar(&flags.Port, "port", sshserver.DefaultSSHPort, "SSH port")
 	fs.StringVar(&flags.Username, "u", "", sshUsernameDesc)
 	fs.StringVar(&flags.Username, "user", "", sshUsernameDesc)
-	fs.StringVar(&flags.Login, "login", "", sshUsernameDesc+" (alias for --user)")
+	fs.StringVar(&flags.Login, sshLoginFlag, "", sshUsernameDesc+" (alias for --user)")
 	fs.BoolVar(&flags.RequestPTY, "t", false, "Force pseudo-terminal allocation")
 	fs.BoolVar(&flags.RequestPTY, "tty", false, "Force pseudo-terminal allocation")
 
@@ -429,15 +423,25 @@ func createSSHFlagSet() (*flag.FlagSet, *sshFlags) {
 	fs.BoolVar(&flags.SkipCachedToken, "no-cache", false, "Skip cached JWT token and force fresh authentication")
 	fs.BoolVar(&flags.NoBrowser, "no-browser", defaultNoBrowser, noBrowserDesc)
 
-	fs.StringVar(&flags.ConfigPath, "c", defaultConfigPath, "Netbird config file location")
-	fs.StringVar(&flags.ConfigPath, "config", defaultConfigPath, "Netbird config file location")
 	fs.StringVar(&flags.LogLevel, "l", defaultLogLevel, "sets Netbird log level")
 	fs.StringVar(&flags.LogLevel, "log-level", defaultLogLevel, "sets Netbird log level")
 
 	return fs, flags
 }
 
-func validateSSHArgsWithoutFlagParsing(_ *cobra.Command, args []string) error {
+// isFlagSet reports whether name was passed on the command line, even with an
+// empty value.
+func isFlagSet(fs *flag.FlagSet, name string) bool {
+	set := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
+}
+
+func validateSSHArgsWithoutFlagParsing(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return errors.New(hostArgumentRequired)
 	}
@@ -464,6 +468,12 @@ func validateSSHArgsWithoutFlagParsing(_ *cobra.Command, args []string) error {
 		return errors.New(hostArgumentRequired)
 	}
 
+	// Cobra does not parse the flags of this command, so it cannot print the
+	// deprecation notice itself.
+	if isFlagSet(fs, sshLoginFlag) {
+		cmd.PrintErrf("Flag --%s has been deprecated, %s\n", sshLoginFlag, sshLoginDeprecation)
+	}
+
 	port = flags.Port
 	if flags.Username != "" {
 		username = flags.Username
@@ -478,9 +488,6 @@ func validateSSHArgsWithoutFlagParsing(_ *cobra.Command, args []string) error {
 	skipCachedToken = flags.SkipCachedToken
 	sshNoBrowser = flags.NoBrowser
 
-	if flags.ConfigPath != getEnvOrDefault("CONFIG", configPath) {
-		configPath = flags.ConfigPath
-	}
 	if flags.LogLevel != getEnvOrDefault("LOG_LEVEL", logLevel) {
 		logLevel = flags.LogLevel
 	}
