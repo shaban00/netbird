@@ -112,6 +112,8 @@ var methodPolicies = map[string]MethodPolicy{
 	servicePath + "ForwardingRules":            {Level: AuthzLevelSessionHolder, Action: "listing forwarding rules"},
 	servicePath + "ExposeService":              {Level: AuthzLevelSessionHolder, Audit: true, Action: "exposing a service"},
 	servicePath + "GetPeerSSHHostKey":          {Level: AuthzLevelSessionHolder, Action: "reading a peer SSH host key"},
+	servicePath + "ListCloudIntegrations":      {Level: AuthzLevelSessionHolder, Action: "listing cloud integrations"},
+	servicePath + "GetCloudCredentials":        {Level: AuthzLevelSessionHolder, Audit: true, Action: "issuing cloud credentials"},
 	servicePath + "RequestJWTAuth":             {Level: AuthzLevelSessionHolder, Audit: true, Action: "starting authentication"},
 	servicePath + "RequestExtendAuthSession":   {Level: AuthzLevelSessionHolder, Action: "extending the session"},
 	servicePath + "DismissSessionWarning":      {Level: AuthzLevelSessionHolder, Action: "dismissing the session warning"},
