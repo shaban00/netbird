@@ -7,7 +7,10 @@
 #   out: .goreleaser.fork.yaml
 #
 # Changes made to upstream's config:
-#   - images go to $DOCKERHUB_NAMESPACE/<image> and ghcr.io/$GHCR_NAMESPACE/<image>
+#   - images go to $DOCKERHUB_NAMESPACE/<image> and ghcr.io/$GHCR_NAMESPACE/<image>,
+#     with a netbird- prefix so they read clearly next to other projects
+#     (management -> netbird-management; netbird, netbird-server and nblink keep
+#     their names)
 #   - the Homebrew tap and NetBird's package-server uploads are removed
 #   - fork tags (vX.Y.Z-<suffix>.N) are full releases, not prereleases
 #   - GitHub's "Latest release" follows SKIP_LATEST, like the Docker latest tags
@@ -27,13 +30,19 @@ yq '
   del(.uploads) |
   .dockers_v2[].images |= map(
     sub("^ghcr\.io/netbirdio/"; "ghcr.io/" + strenv(GHCR_NAMESPACE) + "/") |
-    sub("^netbirdio/"; strenv(DOCKERHUB_NAMESPACE) + "/")
+    sub("^netbirdio/"; strenv(DOCKERHUB_NAMESPACE) + "/") |
+    with(select(test("/(netbird|nb)[^/]*$") | not); . |= sub("/(?P<name>[^/]+)$"; "/netbird-${name}"))
   ) |
   .release.prerelease = "false" |
   .release.make_latest = "{{ if eq .Env.SKIP_LATEST \"false\" }}true{{ else }}false{{ end }}"
 ' "$in" > "$out"
 
 # Fail rather than publish anything under upstream's names.
+if yq '.dockers_v2[].images[]' "$out" | grep -qvE '/(netbird|nblink)[^/]*$' ||
+  yq '.dockers_v2[].images[]' "$out" | grep -qE '/netbird-(netbird|nb)'; then
+  echo "error: $out has an image without the netbird- prefix, or with it twice" >&2
+  exit 1
+fi
 if yq '.dockers_v2[].images[]' "$out" | grep -q 'netbirdio/'; then
   echo "error: $out still pushes images to netbirdio" >&2
   exit 1

@@ -118,7 +118,9 @@ jobs:
         # Upstream's script reads the version from GITHUB_REF; a dry run has no tag.
         run: GITHUB_REF="refs/tags/$RELEASE_TAG" bash release_files/rpm-provides.sh
       - name: Generate the fork's GoReleaser config
-        run: bash .github/fork/goreleaser-config.sh .goreleaser.generated.yaml .goreleaser.fork.yaml
+        # Written outside the checkout: GoReleaser refuses to release from a
+        # working tree with untracked files.
+        run: bash .github/fork/goreleaser-config.sh .goreleaser.generated.yaml "$RUNNER_TEMP/goreleaser.fork.yaml"
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -170,7 +172,7 @@ jobs:
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
           version: ${{ env.GORELEASER_VER }}
-          args: release --config .goreleaser.fork.yaml --clean ${{ env.GORELEASER_FLAGS }}
+          args: release --config ${{ runner.temp }}/goreleaser.fork.yaml --clean ${{ env.GORELEASER_FLAGS }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_PUBLISH: "false"
