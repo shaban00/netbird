@@ -20,10 +20,18 @@
 # and for a login in front of the web UI: NETBIRD_RECORDER_OIDC_ISSUER,
 # NETBIRD_RECORDER_OIDC_CLIENT_ID, NETBIRD_RECORDER_OIDC_CLIENT_SECRET,
 # NETBIRD_RECORDER_OIDC_ALLOWED_GROUPS.
+#
+# Database for the recording index (session list, users, times); the
+# recordings themselves are files on the netbird-recorder volume either way:
+#   SQLite (default)  a file on the netbird-recorder volume
+#   PostgreSQL        NETBIRD_RECORDER_ENABLE_POSTGRES=true runs one in a
+#                     container next to the recorder, or set
+#                     NETBIRD_RECORDER_POSTGRES_DSN to use an existing database
 
 set -euo pipefail
 
 RECORDER_IMAGE="${RECORDER_IMAGE:-@@DOCKERHUB_NAMESPACE@@/netbird-recorder:@@IMAGE_TAG@@}"
+POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:18}"
 GRPC_PORT=22023
 HTTP_PORT=8080
 
@@ -83,6 +91,19 @@ read_value() {
   die "$env_name is required in non-interactive mode."
 }
 
+# read_yes_no ENV_NAME PROMPT DEFAULT -> prints true or false
+read_yes_no() {
+  local env_name="$1" prompt="$2" default="$3" value hint="y/N"
+  [[ "$default" == "true" ]] && hint="Y/n"
+  value="$(read_value "$env_name" "$prompt ($hint)" "" optional)"
+  case "${value,,}" in
+    "") printf '%s' "$default" ;;
+    y | yes | true | 1) printf 'true' ;;
+    n | no | false | 0) printf 'false' ;;
+    *) die "$env_name must be yes or no, got: $value" ;;
+  esac
+}
+
 configure() {
   MANAGEMENT_URL="$(read_value NETBIRD_MANAGEMENT_URL "NetBird management URL (for example https://netbird.example.com)")"
   MANAGEMENT_URL="${MANAGEMENT_URL%/}"
@@ -96,6 +117,22 @@ configure() {
 
   RETENTION_DAYS="$(read_value NETBIRD_RECORDER_RETENTION_DAYS "Delete recordings after how many days (0 keeps them forever)" "0")"
   [[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]] || die "Retention must be a whole number of days."
+
+  # Database for the recording index.
+  POSTGRES_DSN="${NETBIRD_RECORDER_POSTGRES_DSN:-}"
+  BUNDLED_POSTGRES=false
+  if [[ -n "$POSTGRES_DSN" ]]; then
+    STORE_ENGINE=postgres
+  else
+    BUNDLED_POSTGRES="$(read_yes_no NETBIRD_RECORDER_ENABLE_POSTGRES \
+      "Use PostgreSQL instead of SQLite for the recording index?" false)"
+    STORE_ENGINE=sqlite
+    if [[ "$BUNDLED_POSTGRES" == "true" ]]; then
+      STORE_ENGINE=postgres
+      POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+      POSTGRES_DSN="host=postgres user=recorder password=${POSTGRES_PASSWORD} dbname=recorder port=5432 sslmode=disable"
+    fi
+  fi
 
   ENCRYPTION_KEY="${NETBIRD_RECORDER_ENCRYPTION_KEY:-}"
   KEY_GENERATED=false
@@ -118,15 +155,15 @@ configure() {
 }
 
 check_existing() {
-  if [[ -e docker-compose.yml || -e docker-compose.yaml || -e .env ]]; then
-    echo "Recorder configuration files already exist in the current directory." >&2
+  local f found=()
+  for f in docker-compose.yml docker-compose.yaml .env postgres.env; do
+    [[ -e "$f" ]] && found+=("$f")
+  done
+  if [[ ${#found[@]} -gt 0 ]]; then
+    echo "Recorder configuration files already exist in the current directory:" >&2
+    printf '  %s\n' "${found[@]}" >&2
     echo "" >&2
-    echo "Existing files:" >&2
-    [[ -e docker-compose.yml ]] && echo "  docker-compose.yml" >&2
-    [[ -e docker-compose.yaml ]] && echo "  docker-compose.yaml" >&2
-    [[ -e .env ]] && echo "  .env" >&2
-    echo "" >&2
-    echo "Move or remove the existing files before running this installer." >&2
+    echo "Move or remove them, or run this installer in an empty directory." >&2
     exit 1
   fi
 }
@@ -134,8 +171,40 @@ check_existing() {
 render_files() {
   log "Generating configuration files..."
 
+  local postgres_service="" postgres_depends="" postgres_volume=""
+  if [[ "$BUNDLED_POSTGRES" == "true" ]]; then
+    postgres_service="
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    container_name: netbird-recorder-postgres
+    restart: unless-stopped
+    env_file:
+      - postgres.env
+    healthcheck:
+      test: [\"CMD-SHELL\", \"pg_isready -U \$\$POSTGRES_USER -d \$\$POSTGRES_DB\"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres:/var/lib/postgresql
+    logging:
+      driver: \"json-file\"
+      options:
+        max-size: \"50m\"
+        max-file: \"5\"
+"
+    postgres_depends="
+    depends_on:
+      postgres:
+        condition: service_healthy"
+    postgres_volume="
+  postgres:
+    name: netbird-recorder-postgres
+    driver: local"
+  fi
+
   cat > docker-compose.yml <<EOF
-services:
+services:${postgres_service}
   recorder:
     image: ${RECORDER_IMAGE}
     container_name: netbird-recorder
@@ -146,7 +215,7 @@ services:
       - NET_ADMIN
     volumes:
       # Recordings, their metadata, and this peer's NetBird registration.
-      - recorder:/var/lib/netbird-recorder
+      - recorder:/var/lib/netbird-recorder${postgres_depends}
     logging:
       driver: "json-file"
       options:
@@ -156,7 +225,7 @@ services:
 volumes:
   recorder:
     name: netbird-recorder
-    driver: local
+    driver: local${postgres_volume}
 EOF
 
   (
@@ -174,7 +243,19 @@ NB_RETENTION_DAYS=${RETENTION_DAYS}
 # Encrypts recordings and metadata at rest. Recordings cannot be read without
 # it: keep a copy somewhere safe.
 NB_ENCRYPTION_KEY=${ENCRYPTION_KEY}
+# Recording index database
+NB_STORE_ENGINE=${STORE_ENGINE}
 EOF
+    if [[ "$STORE_ENGINE" == "postgres" ]]; then
+      echo "NB_RECORDER_POSTGRES_DSN=${POSTGRES_DSN}" >> .env
+    fi
+    if [[ "$BUNDLED_POSTGRES" == "true" ]]; then
+      cat > postgres.env <<EOF
+POSTGRES_DB=recorder
+POSTGRES_USER=recorder
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+EOF
+    fi
     if [[ -n "$OIDC_ISSUER" ]]; then
       cat >> .env <<EOF
 # Web UI login
@@ -271,7 +352,12 @@ without it.
 EOF
   fi
 
+  local database="SQLite, on the netbird-recorder volume"
+  [[ "$STORE_ENGINE" == "postgres" ]] && database="your PostgreSQL database (NB_RECORDER_POSTGRES_DSN in .env)"
+  [[ "$BUNDLED_POSTGRES" == "true" ]] && database="PostgreSQL, in the netbird-recorder-postgres container and volume"
   cat <<EOF
+
+Recording index: ${database}.
 
 The Docker volume netbird-recorder holds the recordings and this peer's NetBird
 registration. Removing it makes the recorder register again, which needs a
