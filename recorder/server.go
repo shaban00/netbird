@@ -262,7 +262,12 @@ func (s *Server) Start(ctx context.Context) error {
 		go s.runRetentionSweep(ctx)
 	}
 
-	s.logger.Infof("recorder: gRPC listening on tunnel port %d, HTTP listening on tunnel %s", s.cfg.GRPCPort, s.cfg.HTTPAddress)
+	// The NetBird IP is what SSH server peers pass to --ssh-session-recorder.
+	netbirdIP := "unknown"
+	if st, err := embedClient.Status(); err == nil && st.LocalPeerState.IP != "" {
+		netbirdIP, _, _ = strings.Cut(st.LocalPeerState.IP, "/")
+	}
+	s.logger.Infof("recorder: NetBird IP %s, gRPC listening on tunnel port %d, HTTP listening on tunnel %s", netbirdIP, s.cfg.GRPCPort, s.cfg.HTTPAddress)
 	return nil
 }
 
