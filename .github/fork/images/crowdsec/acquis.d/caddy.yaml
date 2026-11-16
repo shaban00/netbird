@@ -1,0 +1,6 @@
+filenames:
+  - /var/log/caddy/access.log
+force_inotify: true
+labels:
+  type: caddy
+source: file

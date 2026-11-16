@@ -11,8 +11,10 @@
 #   - Docker images (multi-arch) to Docker Hub $DOCKERHUB_NAMESPACE/<image>
 #     and ghcr.io/$GHCR_NAMESPACE/<image>, tagged with the version and, for the
 #     newest fork release, latest
-#   - a GitHub Release with the CLI binaries, unsigned .deb/.rpm packages and
-#     checksums
+#   - netbird-caddy and netbird-crowdsec (.github/fork/images), used by
+#     install-server.sh, to the same registries with the same tags
+#   - a GitHub Release with the CLI binaries, unsigned .deb/.rpm and Arch Linux
+#     packages, checksums, and the install-*.sh scripts (release-scripts.py)
 #
 # Dry run: start "Fork release" by hand from the Actions tab to build
 # everything (binaries, packages, all images) without publishing anything.
@@ -117,10 +119,20 @@ jobs:
       - name: Fill the RPM ISA provide version
         # Upstream's script reads the version from GITHUB_REF; a dry run has no tag.
         run: GITHUB_REF="refs/tags/$RELEASE_TAG" bash release_files/rpm-provides.sh
+      - name: Generate the fork's release scripts
+        # install-client.sh and the install-*.sh service scripts, pointing at
+        # this release's images (RELEASE_TAG). GoReleaser only attaches files
+        # inside the checkout, and bin/ is git-ignored, so they cannot make the
+        # working tree dirty.
+        env:
+          GITHUB_OWNER: ${{ github.repository_owner }}
+        run: python3 .github/fork/release-scripts.py bin/fork-release
       - name: Generate the fork's GoReleaser config
         # Written outside the checkout: GoReleaser refuses to release from a
         # working tree with untracked files.
-        run: bash .github/fork/goreleaser-config.sh .goreleaser.generated.yaml "$RUNNER_TEMP/goreleaser.fork.yaml"
+        env:
+          GITHUB_OWNER: ${{ github.repository_owner }}
+        run: FORK_RELEASE_FILES=bin/fork-release bash .github/fork/goreleaser-config.sh .goreleaser.generated.yaml "$RUNNER_TEMP/goreleaser.fork.yaml"
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -148,6 +160,26 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the Caddy and CrowdSec images
+        # install-server.sh deploys these next to the release's own images.
+        # A dry run builds them without pushing.
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          for image in caddy crowdsec; do
+            tags=()
+            for repo in "$DOCKERHUB_NAMESPACE/netbird-$image" "ghcr.io/$GHCR_NAMESPACE/netbird-$image"; do
+              tags+=(--tag "$repo:$version")
+              [[ "$SKIP_LATEST" == "false" ]] && tags+=(--tag "$repo:latest")
+            done
+            push=--push
+            [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]] && push=
+            docker buildx build --platform linux/amd64,linux/arm64 \
+              --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.version=$version" \
+              "${tags[@]}" $push ".github/fork/images/$image"
+          done
+
       - name: Install OS build dependencies
         run: sudo apt update && sudo apt install -y -q gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
 

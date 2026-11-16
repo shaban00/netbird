@@ -14,6 +14,10 @@
 #   - the Homebrew tap and NetBird's package-server uploads are removed
 #   - fork tags (vX.Y.Z-<suffix>.N) are full releases, not prereleases
 #   - GitHub's "Latest release" follows SKIP_LATEST, like the Docker latest tags
+#   - upstream's install/getting-started/enterprise scripts are replaced by
+#     the fork's install-*.sh scripts in $FORK_RELEASE_FILES (written by
+#     release-scripts.py)
+#   - the release notes start with how to install this release
 #   - an Arch Linux package (.pkg.tar.zst) is built from the same binaries as
 #     upstream's .deb, with pacman hooks from .github/fork/archlinux. Its
 #     version is <upstream version>-<N> for tag v<upstream version>-spydasec.N:
@@ -27,6 +31,11 @@ in=${1:-.goreleaser.generated.yaml}
 out=${2:-.goreleaser.fork.yaml}
 : "${DOCKERHUB_NAMESPACE:?set DOCKERHUB_NAMESPACE, e.g. spydasec}"
 : "${GHCR_NAMESPACE:?set GHCR_NAMESPACE, e.g. spydasec}"
+: "${FORK_RELEASE_FILES:?set FORK_RELEASE_FILES to the directory release-scripts.py wrote}"
+for f in install-client.sh install-server.sh install-relay.sh install-signal.sh install-recorder.sh; do
+  [[ -f "$FORK_RELEASE_FILES/$f" ]] || { echo "error: $FORK_RELEASE_FILES/$f is missing" >&2; exit 1; }
+done
+GITHUB_OWNER=${GITHUB_OWNER:-$GHCR_NAMESPACE}
 ARCH_PACKAGER=${ARCH_PACKAGER:-$GHCR_NAMESPACE}
 # Arch package release (pkgrel): N from RELEASE_TAG vX.Y.Z-spydasec.N. GoReleaser
 # does not template nfpm's release field, so it is filled in here. Arch needs
@@ -35,7 +44,7 @@ ARCH_PKGREL=1
 if [[ "${RELEASE_TAG:-}" =~ -spydasec\.([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
   ARCH_PKGREL=$(( 10#${BASH_REMATCH[1]} ))
 fi
-export DOCKERHUB_NAMESPACE GHCR_NAMESPACE ARCH_PACKAGER ARCH_PKGREL
+export DOCKERHUB_NAMESPACE GHCR_NAMESPACE ARCH_PACKAGER ARCH_PKGREL FORK_RELEASE_FILES GITHUB_OWNER
 
 # The Arch Linux package is derived from upstream's .deb definition.
 if [[ "$(yq '[.nfpms[] | select(.id == "netbird_deb")] | length' "$in")" != "1" ]]; then
@@ -44,6 +53,7 @@ if [[ "$(yq '[.nfpms[] | select(.id == "netbird_deb")] | length' "$in")" != "1" 
 fi
 
 yq '
+  ("https://github.com/" + strenv(GITHUB_OWNER) + "/netbird/releases/latest/download") as $dl |
   del(.brews) |
   del(.uploads) |
   .dockers_v2[].images |= map(
@@ -67,6 +77,21 @@ yq '
       }
     }
   ] |
+  .release.extra_files = [{"glob": strenv(FORK_RELEASE_FILES) + "/*.sh"}] |
+  .checksum.extra_files = [{"glob": strenv(FORK_RELEASE_FILES) + "/*.sh"}] |
+  .release.header = "## Install\n\n" +
+    "Client (Linux and macOS):\n\n" +
+    "```sh\ncurl -fsSL " + $dl + "/install-client.sh | sh\n```\n\n" +
+    "Or download a package below: `.deb`, `.rpm`, Arch Linux `.pkg.tar.zst`, or an archive.\n\n" +
+    "Self-hosted server (Docker; asks about PostgreSQL, the reverse proxy and CrowdSec):\n\n" +
+    "```sh\ncurl -fsSL " + $dl + "/install-server.sh | bash\n```\n\n" +
+    "Standalone services (Docker), each on its own host:\n\n" +
+    "```sh\n" +
+    "curl -fsSL " + $dl + "/install-relay.sh | bash\n" +
+    "curl -fsSL " + $dl + "/install-signal.sh | bash\n" +
+    "curl -fsSL " + $dl + "/install-recorder.sh | bash\n" +
+    "```\n\n" +
+    "Images: `" + strenv(DOCKERHUB_NAMESPACE) + "/netbird-*` on Docker Hub and `ghcr.io/" + strenv(GHCR_NAMESPACE) + "/netbird-*`.\n" |
   .release.prerelease = "false" |
   .release.make_latest = "{{ if eq .Env.SKIP_LATEST \"false\" }}true{{ else }}false{{ end }}"
 ' "$in" > "$out"
@@ -79,6 +104,10 @@ if yq '.dockers_v2[].images[]' "$out" | grep -qvE '/(netbird|nblink)[^/]*$' ||
 fi
 if yq '.dockers_v2[].images[]' "$out" | grep -q 'netbirdio/'; then
   echo "error: $out still pushes images to netbirdio" >&2
+  exit 1
+fi
+if yq '.release.extra_files[].glob, .checksum.extra_files[].glob' "$out" | grep -qv "^$FORK_RELEASE_FILES/"; then
+  echo "error: $out still attaches upstream's release scripts" >&2
   exit 1
 fi
 if yq '.brews, .uploads' "$out" | grep -qv '^null$'; then
