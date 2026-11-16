@@ -1,0 +1,174 @@
+# Fork release: builds upstream's GoReleaser targets and publishes them under
+# this fork's names. Kept separate from upstream's release.yml (disabled in
+# this fork) so syncing with upstream never conflicts.
+#
+# Triggered by a tag of the form vX.Y.Z-spydasec.N, where X.Y.Z is the upstream
+# release it is based on and N counts this fork's builds of it:
+#
+#   git tag v0.83.1-spydasec.1 && git push origin v0.83.1-spydasec.1
+#
+# Publishes:
+#   - Docker images (multi-arch) to Docker Hub $DOCKERHUB_NAMESPACE/<image>
+#     and ghcr.io/$GHCR_NAMESPACE/<image>, tagged with the version and, for the
+#     newest fork release, latest
+#   - a GitHub Release with the CLI binaries, unsigned .deb/.rpm packages and
+#     checksums
+#
+# Dry run: start "Fork release" by hand from the Actions tab to build
+# everything (binaries, packages, all images) without publishing anything.
+#
+# Needs repository secrets DOCKER_USER and DOCKER_TOKEN (a Docker Hub access
+# token with read/write access). GHCR uses the workflow's own token.
+name: Fork release
+
+on:
+  push:
+    tags:
+      - "v*-spydasec.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Dry run only: version to build as (nothing is published)"
+        default: "v0.0.0-spydasec.0"
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+env:
+  GORELEASER_VER: "v2.16.0"
+  PRODUCT_NAME: "NetBird"
+  COPYRIGHT: "NetBird GmbH"
+  DOCKERHUB_NAMESPACE: spydasec
+  GHCR_NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0 # It is required for GoReleaser to work properly
+          persist-credentials: false
+      - name: Fetch upstream release tags
+        # Fork tags (vX.Y.Z-spydasec.N) are semver prereleases, which the RPM
+        # changelog generator skips, so it needs upstream's release tags. They
+        # also make the release notes list what this release adds on top of
+        # the upstream version. Fetched into this checkout only, never pushed.
+        run: git fetch --no-recurse-submodules https://github.com/netbirdio/netbird.git '+refs/tags/v*:refs/tags/v*'
+
+      - name: Validate tag and decide whether it moves latest
+        id: version
+        env:
+          DRY_RUN_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            tag="$DRY_RUN_VERSION"
+            echo "GORELEASER_FLAGS=--snapshot" >> "$GITHUB_ENV"
+            # The RPM changelog needs a version tag. This one exists only in
+            # the runner's checkout and is never pushed.
+            git tag "$tag"
+          else
+            tag="$GITHUB_REF_NAME"
+          fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-spydasec\.[0-9]+$ ]]; then
+            echo "::error::tag $tag must look like v0.83.1-spydasec.1"
+            exit 1
+          fi
+          {
+            echo "major=${BASH_REMATCH[1]}"
+            echo "minor=${BASH_REMATCH[2]}"
+            echo "patch=${BASH_REMATCH[3]}"
+          } >> "$GITHUB_OUTPUT"
+
+          # Only the newest fork release moves the latest tags, so rebuilding
+          # an older one cannot drag latest backwards. Upstream tags are ignored.
+          newest=$(git tag -l 'v*-spydasec.*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-spydasec\.[0-9]+$' | sort -V | tail -n1)
+          if [[ "$tag" == "$newest" ]]; then
+            echo "SKIP_LATEST=false" >> "$GITHUB_ENV"
+          else
+            echo "SKIP_LATEST=true" >> "$GITHUB_ENV"
+            echo "::notice::$tag is older than $newest; latest tags are left alone"
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: "go.mod"
+          cache: false
+      - name: Cache Go modules
+        uses: actions/cache/restore@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-releaser-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-releaser-
+      - name: Generate RPM changelog from git tags
+        run: bash release_files/rpm-changelog.sh
+      - name: Fill the RPM ISA provide version
+        # Upstream's script reads the version from GITHUB_REF; a dry run has no tag.
+        run: GITHUB_REF="refs/tags/$RELEASE_TAG" bash release_files/rpm-provides.sh
+      - name: Generate the fork's GoReleaser config
+        run: bash .github/fork/goreleaser-config.sh .goreleaser.generated.yaml .goreleaser.fork.yaml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Install proxy web dependencies for license collection
+        working-directory: proxy/web
+        run: npm ci --ignore-scripts
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 #v4.1.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 #v4.1.0
+      - name: Login to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Log in to the GitHub container registry
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install OS build dependencies
+        run: sudo apt update && sudo apt install -y -q gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
+
+      - name: Install goversioninfo
+        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@b66839b # v1.7.0
+      - name: Generate windows syso
+        env:
+          MAJOR: ${{ steps.version.outputs.major }}
+          MINOR: ${{ steps.version.outputs.minor }}
+          PATCH: ${{ steps.version.outputs.patch }}
+        run: |
+          set -euo pipefail
+          ver="$MAJOR.$MINOR.$PATCH"
+          common=(-icon client/ui/build/windows/icon.ico -manifest client/manifest.xml
+            -product-name "$PRODUCT_NAME" -copyright "$COPYRIGHT"
+            -ver-major "$MAJOR" -ver-minor "$MINOR" -ver-patch "$PATCH" -ver-build 0
+            -file-version "$ver.0" -product-version "$ver.0")
+          goversioninfo "${common[@]}" -o client/resources_windows_amd64.syso
+          goversioninfo -arm -64 "${common[@]}" -o client/resources_windows_arm64.syso
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
+        with:
+          version: ${{ env.GORELEASER_VER }}
+          args: release --config .goreleaser.fork.yaml --clean ${{ env.GORELEASER_FLAGS }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_PUBLISH: "false"
+          SKIP_DOCKER_PUSH: "false"
+          SKIP_LATEST: ${{ env.SKIP_LATEST }}
