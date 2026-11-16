@@ -341,6 +341,7 @@ func (s *Server) Start() error {
 		return err
 	}
 	s.config = config
+	s.startBirdDrop()
 
 	s.statusRecorder.UpdateManagementAddress(config.ManagementURL.String())
 	s.statusRecorder.UpdateRosenpass(config.RosenpassEnabled, config.RosenpassPermissive)
@@ -651,6 +652,7 @@ func (s *Server) setConfigInputFromRequest(msg *proto.SetConfigRequest, resolved
 	config.DisableAutoConnect = msg.DisableAutoConnect
 	config.ServerSSHAllowed = msg.ServerSSHAllowed
 	config.RemoteJobsAllowed = msg.RemoteJobsAllowed
+	config.AllowBirdDrop = msg.AllowBirdDrop
 	config.NetworkMonitor = msg.NetworkMonitor
 	config.DisableClientRoutes = msg.DisableClientRoutes
 	config.DisableServerRoutes = msg.DisableServerRoutes
@@ -770,7 +772,9 @@ func (s *Server) Login(callerCtx context.Context, msg *proto.LoginRequest) (*pro
 	s.config = config
 	if switched {
 		s.jwtCache.clear()
+		discardBirdDropOffers()
 	}
+	s.startBirdDrop()
 	s.mutex.Unlock()
 
 	s.localMetrics.Reconcile(config.LocalMetricsEnabled, config.LocalMetricsAddress)
@@ -1243,6 +1247,7 @@ func (s *Server) Up(callerCtx context.Context, msg *proto.UpRequest) (*proto.UpR
 		return nil, fmt.Errorf("failed to get active profile config: %w", err)
 	}
 	s.config = config
+	s.startBirdDrop()
 
 	s.statusRecorder.UpdateManagementAddress(s.config.ManagementURL.String())
 	s.statusRecorder.UpdateRosenpass(s.config.RosenpassEnabled, s.config.RosenpassPermissive)
@@ -1432,6 +1437,8 @@ func (s *Server) SwitchProfile(callerCtx context.Context, msg *proto.SwitchProfi
 	s.localMetrics.Reconcile(config.LocalMetricsEnabled, config.LocalMetricsAddress)
 
 	s.dropPendingAuthFlows()
+	discardBirdDropOffers()
+	s.startBirdDrop()
 
 	if msg != nil && msg.ProfileName != nil {
 		s.publishProfileListChanged(*msg.ProfileName)
@@ -1443,6 +1450,9 @@ func (s *Server) SwitchProfile(callerCtx context.Context, msg *proto.SwitchProfi
 // Down engine work in the daemon.
 func (s *Server) Down(ctx context.Context, _ *proto.DownRequest) (*proto.DownResponse, error) {
 	s.mutex.Lock()
+
+	// Pending BirdDrop offers belong to this session; never hand them to the next one.
+	discardBirdDropOffers()
 
 	giveUpChan := s.clientGiveUpChan
 
@@ -1555,6 +1565,8 @@ func (s *Server) cleanupConnection() error {
 func (s *Server) Logout(ctx context.Context, msg *proto.LogoutRequest) (*proto.LogoutResponse, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	discardBirdDropOffers()
 
 	if msg.ProfileName != nil && *msg.ProfileName != "" {
 		return s.handleProfileLogout(ctx, msg)
@@ -1939,6 +1951,7 @@ func (s *Server) buildStatusResponse(ctx context.Context, msg *proto.StatusReque
 		pbFullStatus := fullStatus.ToProto()
 		pbFullStatus.Events = s.statusRecorder.GetEventHistory()
 		pbFullStatus.SshServerState = s.getSSHServerState()
+		pbFullStatus.BirddropEnabled = birdDropEnabled()
 		pbFullStatus.NetworksRevision = s.statusRecorder.GetNetworksRevision()
 		statusResponse.FullStatus = pbFullStatus
 	}

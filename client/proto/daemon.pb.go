@@ -143,6 +143,59 @@ func (ExposeProtocol) EnumDescriptor() ([]byte, []int) {
 	return file_daemon_proto_rawDescGZIP(), []int{1}
 }
 
+// BirddropPayloadType identifies the kind of content in a transfer.
+type BirddropPayloadType int32
+
+const (
+	BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED BirddropPayloadType = 0
+	BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_FILE        BirddropPayloadType = 1
+	BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_DIRECTORY   BirddropPayloadType = 2
+	BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_CLIPBOARD   BirddropPayloadType = 3
+)
+
+// Enum value maps for BirddropPayloadType.
+var (
+	BirddropPayloadType_name = map[int32]string{
+		0: "BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED",
+		1: "BIRDDROP_PAYLOAD_TYPE_FILE",
+		2: "BIRDDROP_PAYLOAD_TYPE_DIRECTORY",
+		3: "BIRDDROP_PAYLOAD_TYPE_CLIPBOARD",
+	}
+	BirddropPayloadType_value = map[string]int32{
+		"BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED": 0,
+		"BIRDDROP_PAYLOAD_TYPE_FILE":        1,
+		"BIRDDROP_PAYLOAD_TYPE_DIRECTORY":   2,
+		"BIRDDROP_PAYLOAD_TYPE_CLIPBOARD":   3,
+	}
+)
+
+func (x BirddropPayloadType) Enum() *BirddropPayloadType {
+	p := new(BirddropPayloadType)
+	*p = x
+	return p
+}
+
+func (x BirddropPayloadType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BirddropPayloadType) Descriptor() protoreflect.EnumDescriptor {
+	return file_daemon_proto_enumTypes[2].Descriptor()
+}
+
+func (BirddropPayloadType) Type() protoreflect.EnumType {
+	return &file_daemon_proto_enumTypes[2]
+}
+
+func (x BirddropPayloadType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BirddropPayloadType.Descriptor instead.
+func (BirddropPayloadType) EnumDescriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{2}
+}
+
 type SystemEvent_Severity int32
 
 const (
@@ -179,11 +232,11 @@ func (x SystemEvent_Severity) String() string {
 }
 
 func (SystemEvent_Severity) Descriptor() protoreflect.EnumDescriptor {
-	return file_daemon_proto_enumTypes[2].Descriptor()
+	return file_daemon_proto_enumTypes[3].Descriptor()
 }
 
 func (SystemEvent_Severity) Type() protoreflect.EnumType {
-	return &file_daemon_proto_enumTypes[2]
+	return &file_daemon_proto_enumTypes[3]
 }
 
 func (x SystemEvent_Severity) Number() protoreflect.EnumNumber {
@@ -234,11 +287,11 @@ func (x SystemEvent_Category) String() string {
 }
 
 func (SystemEvent_Category) Descriptor() protoreflect.EnumDescriptor {
-	return file_daemon_proto_enumTypes[3].Descriptor()
+	return file_daemon_proto_enumTypes[4].Descriptor()
 }
 
 func (SystemEvent_Category) Type() protoreflect.EnumType {
-	return &file_daemon_proto_enumTypes[3]
+	return &file_daemon_proto_enumTypes[4]
 }
 
 func (x SystemEvent_Category) Number() protoreflect.EnumNumber {
@@ -314,6 +367,7 @@ type LoginRequest struct {
 	OptionalPreSharedKey *string              `protobuf:"bytes,13,opt,name=optionalPreSharedKey,proto3,oneof" json:"optionalPreSharedKey,omitempty"`
 	DisableAutoConnect   *bool                `protobuf:"varint,14,opt,name=disableAutoConnect,proto3,oneof" json:"disableAutoConnect,omitempty"`
 	ServerSSHAllowed     *bool                `protobuf:"varint,15,opt,name=serverSSHAllowed,proto3,oneof" json:"serverSSHAllowed,omitempty"`
+	AllowBirdDrop        *bool                `protobuf:"varint,46,opt,name=allowBirdDrop,proto3,oneof" json:"allowBirdDrop,omitempty"`
 	RosenpassPermissive  *bool                `protobuf:"varint,16,opt,name=rosenpassPermissive,proto3,oneof" json:"rosenpassPermissive,omitempty"`
 	ExtraIFaceBlacklist  []string             `protobuf:"bytes,17,rep,name=extraIFaceBlacklist,proto3" json:"extraIFaceBlacklist,omitempty"`
 	NetworkMonitor       *bool                `protobuf:"varint,18,opt,name=networkMonitor,proto3,oneof" json:"networkMonitor,omitempty"`
@@ -488,6 +542,13 @@ func (x *LoginRequest) GetDisableAutoConnect() bool {
 func (x *LoginRequest) GetServerSSHAllowed() bool {
 	if x != nil && x.ServerSSHAllowed != nil {
 		return *x.ServerSSHAllowed
+	}
+	return false
+}
+
+func (x *LoginRequest) GetAllowBirdDrop() bool {
+	if x != nil && x.AllowBirdDrop != nil {
+		return *x.AllowBirdDrop
 	}
 	return false
 }
@@ -2231,8 +2292,10 @@ type FullStatus struct {
 	// on it to know when to re-fetch ListNetworks via the push stream, instead
 	// of polling on every status snapshot.
 	NetworksRevision uint64 `protobuf:"varint,11,opt,name=networksRevision,proto3" json:"networksRevision,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// birddropEnabled reports whether this peer accepts inbound file offers
+	BirddropEnabled bool `protobuf:"varint,12,opt,name=birddropEnabled,proto3" json:"birddropEnabled,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *FullStatus) Reset() {
@@ -2341,6 +2404,13 @@ func (x *FullStatus) GetNetworksRevision() uint64 {
 		return x.NetworksRevision
 	}
 	return 0
+}
+
+func (x *FullStatus) GetBirddropEnabled() bool {
+	if x != nil {
+		return x.BirddropEnabled
+	}
+	return false
 }
 
 // Networks
@@ -4286,6 +4356,7 @@ type SetConfigRequest struct {
 	OptionalPreSharedKey  *string  `protobuf:"bytes,8,opt,name=optionalPreSharedKey,proto3,oneof" json:"optionalPreSharedKey,omitempty"`
 	DisableAutoConnect    *bool    `protobuf:"varint,9,opt,name=disableAutoConnect,proto3,oneof" json:"disableAutoConnect,omitempty"`
 	ServerSSHAllowed      *bool    `protobuf:"varint,10,opt,name=serverSSHAllowed,proto3,oneof" json:"serverSSHAllowed,omitempty"`
+	AllowBirdDrop         *bool    `protobuf:"varint,41,opt,name=allowBirdDrop,proto3,oneof" json:"allowBirdDrop,omitempty"`
 	RosenpassPermissive   *bool    `protobuf:"varint,11,opt,name=rosenpassPermissive,proto3,oneof" json:"rosenpassPermissive,omitempty"`
 	NetworkMonitor        *bool    `protobuf:"varint,12,opt,name=networkMonitor,proto3,oneof" json:"networkMonitor,omitempty"`
 	DisableClientRoutes   *bool    `protobuf:"varint,13,opt,name=disable_client_routes,json=disableClientRoutes,proto3,oneof" json:"disable_client_routes,omitempty"`
@@ -4421,6 +4492,13 @@ func (x *SetConfigRequest) GetDisableAutoConnect() bool {
 func (x *SetConfigRequest) GetServerSSHAllowed() bool {
 	if x != nil && x.ServerSSHAllowed != nil {
 		return *x.ServerSSHAllowed
+	}
+	return false
+}
+
+func (x *SetConfigRequest) GetAllowBirdDrop() bool {
+	if x != nil && x.AllowBirdDrop != nil {
+		return *x.AllowBirdDrop
 	}
 	return false
 }
@@ -7517,6 +7595,634 @@ func (*StopBundleCaptureResponse) Descriptor() ([]byte, []int) {
 	return file_daemon_proto_rawDescGZIP(), []int{113}
 }
 
+type BirddropSendRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Peer           string                 `protobuf:"bytes,1,opt,name=peer,proto3" json:"peer,omitempty"`
+	Path           string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	TimeoutSeconds int64                  `protobuf:"varint,3,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
+	Type           BirddropPayloadType    `protobuf:"varint,4,opt,name=type,proto3,enum=daemon.BirddropPayloadType" json:"type,omitempty"`
+	ClipboardText  string                 `protobuf:"bytes,5,opt,name=clipboard_text,json=clipboardText,proto3" json:"clipboard_text,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *BirddropSendRequest) Reset() {
+	*x = BirddropSendRequest{}
+	mi := &file_daemon_proto_msgTypes[114]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropSendRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropSendRequest) ProtoMessage() {}
+
+func (x *BirddropSendRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[114]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropSendRequest.ProtoReflect.Descriptor instead.
+func (*BirddropSendRequest) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{114}
+}
+
+func (x *BirddropSendRequest) GetPeer() string {
+	if x != nil {
+		return x.Peer
+	}
+	return ""
+}
+
+func (x *BirddropSendRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *BirddropSendRequest) GetTimeoutSeconds() int64 {
+	if x != nil {
+		return x.TimeoutSeconds
+	}
+	return 0
+}
+
+func (x *BirddropSendRequest) GetType() BirddropPayloadType {
+	if x != nil {
+		return x.Type
+	}
+	return BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED
+}
+
+func (x *BirddropSendRequest) GetClipboardText() string {
+	if x != nil {
+		return x.ClipboardText
+	}
+	return ""
+}
+
+type BirddropSendEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	IsDir         bool                   `protobuf:"varint,3,opt,name=is_dir,json=isDir,proto3" json:"is_dir,omitempty"`
+	Transferred   int64                  `protobuf:"varint,4,opt,name=transferred,proto3" json:"transferred,omitempty"`
+	Total         int64                  `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
+	PeerFqdn      string                 `protobuf:"bytes,6,opt,name=peer_fqdn,json=peerFqdn,proto3" json:"peer_fqdn,omitempty"`
+	PeerIp        string                 `protobuf:"bytes,7,opt,name=peer_ip,json=peerIp,proto3" json:"peer_ip,omitempty"`
+	Message       string                 `protobuf:"bytes,8,opt,name=message,proto3" json:"message,omitempty"`
+	Type          BirddropPayloadType    `protobuf:"varint,9,opt,name=type,proto3,enum=daemon.BirddropPayloadType" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropSendEvent) Reset() {
+	*x = BirddropSendEvent{}
+	mi := &file_daemon_proto_msgTypes[115]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropSendEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropSendEvent) ProtoMessage() {}
+
+func (x *BirddropSendEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[115]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropSendEvent.ProtoReflect.Descriptor instead.
+func (*BirddropSendEvent) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{115}
+}
+
+func (x *BirddropSendEvent) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *BirddropSendEvent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BirddropSendEvent) GetIsDir() bool {
+	if x != nil {
+		return x.IsDir
+	}
+	return false
+}
+
+func (x *BirddropSendEvent) GetTransferred() int64 {
+	if x != nil {
+		return x.Transferred
+	}
+	return 0
+}
+
+func (x *BirddropSendEvent) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *BirddropSendEvent) GetPeerFqdn() string {
+	if x != nil {
+		return x.PeerFqdn
+	}
+	return ""
+}
+
+func (x *BirddropSendEvent) GetPeerIp() string {
+	if x != nil {
+		return x.PeerIp
+	}
+	return ""
+}
+
+func (x *BirddropSendEvent) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *BirddropSendEvent) GetType() BirddropPayloadType {
+	if x != nil {
+		return x.Type
+	}
+	return BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED
+}
+
+type BirddropListRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropListRequest) Reset() {
+	*x = BirddropListRequest{}
+	mi := &file_daemon_proto_msgTypes[116]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropListRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropListRequest) ProtoMessage() {}
+
+func (x *BirddropListRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[116]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropListRequest.ProtoReflect.Descriptor instead.
+func (*BirddropListRequest) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{116}
+}
+
+type BirddropOffer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	From          string                 `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
+	Size          int64                  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
+	IsDir         bool                   `protobuf:"varint,5,opt,name=is_dir,json=isDir,proto3" json:"is_dir,omitempty"`
+	ReceivedUnix  int64                  `protobuf:"varint,7,opt,name=received_unix,json=receivedUnix,proto3" json:"received_unix,omitempty"`
+	Type          BirddropPayloadType    `protobuf:"varint,8,opt,name=type,proto3,enum=daemon.BirddropPayloadType" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropOffer) Reset() {
+	*x = BirddropOffer{}
+	mi := &file_daemon_proto_msgTypes[117]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropOffer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropOffer) ProtoMessage() {}
+
+func (x *BirddropOffer) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[117]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropOffer.ProtoReflect.Descriptor instead.
+func (*BirddropOffer) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{117}
+}
+
+func (x *BirddropOffer) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BirddropOffer) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BirddropOffer) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *BirddropOffer) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *BirddropOffer) GetIsDir() bool {
+	if x != nil {
+		return x.IsDir
+	}
+	return false
+}
+
+func (x *BirddropOffer) GetReceivedUnix() int64 {
+	if x != nil {
+		return x.ReceivedUnix
+	}
+	return 0
+}
+
+func (x *BirddropOffer) GetType() BirddropPayloadType {
+	if x != nil {
+		return x.Type
+	}
+	return BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED
+}
+
+type BirddropListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Items         []*BirddropOffer       `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropListResponse) Reset() {
+	*x = BirddropListResponse{}
+	mi := &file_daemon_proto_msgTypes[118]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropListResponse) ProtoMessage() {}
+
+func (x *BirddropListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[118]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropListResponse.ProtoReflect.Descriptor instead.
+func (*BirddropListResponse) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{118}
+}
+
+func (x *BirddropListResponse) GetItems() []*BirddropOffer {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type BirddropReceiveRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	Dest          string                 `protobuf:"bytes,2,opt,name=dest,proto3" json:"dest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropReceiveRequest) Reset() {
+	*x = BirddropReceiveRequest{}
+	mi := &file_daemon_proto_msgTypes[119]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropReceiveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropReceiveRequest) ProtoMessage() {}
+
+func (x *BirddropReceiveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[119]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropReceiveRequest.ProtoReflect.Descriptor instead.
+func (*BirddropReceiveRequest) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{119}
+}
+
+func (x *BirddropReceiveRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *BirddropReceiveRequest) GetDest() string {
+	if x != nil {
+		return x.Dest
+	}
+	return ""
+}
+
+type BirddropRejectRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropRejectRequest) Reset() {
+	*x = BirddropRejectRequest{}
+	mi := &file_daemon_proto_msgTypes[120]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropRejectRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropRejectRequest) ProtoMessage() {}
+
+func (x *BirddropRejectRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[120]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropRejectRequest.ProtoReflect.Descriptor instead.
+func (*BirddropRejectRequest) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{120}
+}
+
+func (x *BirddropRejectRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+type BirddropRejectResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rejected      int32                  `protobuf:"varint,1,opt,name=rejected,proto3" json:"rejected,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropRejectResponse) Reset() {
+	*x = BirddropRejectResponse{}
+	mi := &file_daemon_proto_msgTypes[121]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropRejectResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropRejectResponse) ProtoMessage() {}
+
+func (x *BirddropRejectResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[121]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropRejectResponse.ProtoReflect.Descriptor instead.
+func (*BirddropRejectResponse) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{121}
+}
+
+func (x *BirddropRejectResponse) GetRejected() int32 {
+	if x != nil {
+		return x.Rejected
+	}
+	return 0
+}
+
+type BirddropReceiveEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Transferred   int64                  `protobuf:"varint,4,opt,name=transferred,proto3" json:"transferred,omitempty"`
+	Total         int64                  `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
+	SavedAs       string                 `protobuf:"bytes,6,opt,name=saved_as,json=savedAs,proto3" json:"saved_as,omitempty"`
+	Bytes         int64                  `protobuf:"varint,7,opt,name=bytes,proto3" json:"bytes,omitempty"`
+	IsDir         bool                   `protobuf:"varint,8,opt,name=is_dir,json=isDir,proto3" json:"is_dir,omitempty"`
+	Message       string                 `protobuf:"bytes,9,opt,name=message,proto3" json:"message,omitempty"`
+	Files         int32                  `protobuf:"varint,10,opt,name=files,proto3" json:"files,omitempty"`
+	Type          BirddropPayloadType    `protobuf:"varint,11,opt,name=type,proto3,enum=daemon.BirddropPayloadType" json:"type,omitempty"`
+	ClipboardText string                 `protobuf:"bytes,12,opt,name=clipboard_text,json=clipboardText,proto3" json:"clipboard_text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BirddropReceiveEvent) Reset() {
+	*x = BirddropReceiveEvent{}
+	mi := &file_daemon_proto_msgTypes[122]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BirddropReceiveEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BirddropReceiveEvent) ProtoMessage() {}
+
+func (x *BirddropReceiveEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_daemon_proto_msgTypes[122]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BirddropReceiveEvent.ProtoReflect.Descriptor instead.
+func (*BirddropReceiveEvent) Descriptor() ([]byte, []int) {
+	return file_daemon_proto_rawDescGZIP(), []int{122}
+}
+
+func (x *BirddropReceiveEvent) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *BirddropReceiveEvent) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BirddropReceiveEvent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BirddropReceiveEvent) GetTransferred() int64 {
+	if x != nil {
+		return x.Transferred
+	}
+	return 0
+}
+
+func (x *BirddropReceiveEvent) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *BirddropReceiveEvent) GetSavedAs() string {
+	if x != nil {
+		return x.SavedAs
+	}
+	return ""
+}
+
+func (x *BirddropReceiveEvent) GetBytes() int64 {
+	if x != nil {
+		return x.Bytes
+	}
+	return 0
+}
+
+func (x *BirddropReceiveEvent) GetIsDir() bool {
+	if x != nil {
+		return x.IsDir
+	}
+	return false
+}
+
+func (x *BirddropReceiveEvent) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *BirddropReceiveEvent) GetFiles() int32 {
+	if x != nil {
+		return x.Files
+	}
+	return 0
+}
+
+func (x *BirddropReceiveEvent) GetType() BirddropPayloadType {
+	if x != nil {
+		return x.Type
+	}
+	return BirddropPayloadType_BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED
+}
+
+func (x *BirddropReceiveEvent) GetClipboardText() string {
+	if x != nil {
+		return x.ClipboardText
+	}
+	return ""
+}
+
 type PortInfo_Range struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Start         uint32                 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
@@ -7527,7 +8233,7 @@ type PortInfo_Range struct {
 
 func (x *PortInfo_Range) Reset() {
 	*x = PortInfo_Range{}
-	mi := &file_daemon_proto_msgTypes[115]
+	mi := &file_daemon_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7539,7 +8245,7 @@ func (x *PortInfo_Range) String() string {
 func (*PortInfo_Range) ProtoMessage() {}
 
 func (x *PortInfo_Range) ProtoReflect() protoreflect.Message {
-	mi := &file_daemon_proto_msgTypes[115]
+	mi := &file_daemon_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7574,7 +8280,7 @@ var File_daemon_proto protoreflect.FileDescriptor
 const file_daemon_proto_rawDesc = "" +
 	"\n" +
 	"\fdaemon.proto\x12\x06daemon\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"\x0e\n" +
-	"\fEmptyRequest\"\xfc\x15\n" +
+	"\fEmptyRequest\"\xb9\x16\n" +
 	"\fLoginRequest\x12\x1a\n" +
 	"\bsetupKey\x18\x01 \x01(\tR\bsetupKey\x12&\n" +
 	"\fpreSharedKey\x18\x02 \x01(\tB\x02\x18\x01R\fpreSharedKey\x12$\n" +
@@ -7591,46 +8297,48 @@ const file_daemon_proto_rawDesc = "" +
 	"\rwireguardPort\x18\f \x01(\x03H\x02R\rwireguardPort\x88\x01\x01\x127\n" +
 	"\x14optionalPreSharedKey\x18\r \x01(\tH\x03R\x14optionalPreSharedKey\x88\x01\x01\x123\n" +
 	"\x12disableAutoConnect\x18\x0e \x01(\bH\x04R\x12disableAutoConnect\x88\x01\x01\x12/\n" +
-	"\x10serverSSHAllowed\x18\x0f \x01(\bH\x05R\x10serverSSHAllowed\x88\x01\x01\x125\n" +
-	"\x13rosenpassPermissive\x18\x10 \x01(\bH\x06R\x13rosenpassPermissive\x88\x01\x01\x120\n" +
+	"\x10serverSSHAllowed\x18\x0f \x01(\bH\x05R\x10serverSSHAllowed\x88\x01\x01\x12)\n" +
+	"\rallowBirdDrop\x18. \x01(\bH\x06R\rallowBirdDrop\x88\x01\x01\x125\n" +
+	"\x13rosenpassPermissive\x18\x10 \x01(\bH\aR\x13rosenpassPermissive\x88\x01\x01\x120\n" +
 	"\x13extraIFaceBlacklist\x18\x11 \x03(\tR\x13extraIFaceBlacklist\x12+\n" +
-	"\x0enetworkMonitor\x18\x12 \x01(\bH\aR\x0enetworkMonitor\x88\x01\x01\x12J\n" +
-	"\x10dnsRouteInterval\x18\x13 \x01(\v2\x19.google.protobuf.DurationH\bR\x10dnsRouteInterval\x88\x01\x01\x127\n" +
-	"\x15disable_client_routes\x18\x14 \x01(\bH\tR\x13disableClientRoutes\x88\x01\x01\x127\n" +
-	"\x15disable_server_routes\x18\x15 \x01(\bH\n" +
-	"R\x13disableServerRoutes\x88\x01\x01\x12$\n" +
-	"\vdisable_dns\x18\x16 \x01(\bH\vR\n" +
+	"\x0enetworkMonitor\x18\x12 \x01(\bH\bR\x0enetworkMonitor\x88\x01\x01\x12J\n" +
+	"\x10dnsRouteInterval\x18\x13 \x01(\v2\x19.google.protobuf.DurationH\tR\x10dnsRouteInterval\x88\x01\x01\x127\n" +
+	"\x15disable_client_routes\x18\x14 \x01(\bH\n" +
+	"R\x13disableClientRoutes\x88\x01\x01\x127\n" +
+	"\x15disable_server_routes\x18\x15 \x01(\bH\vR\x13disableServerRoutes\x88\x01\x01\x12$\n" +
+	"\vdisable_dns\x18\x16 \x01(\bH\fR\n" +
 	"disableDns\x88\x01\x01\x12.\n" +
-	"\x10disable_firewall\x18\x17 \x01(\bH\fR\x0fdisableFirewall\x88\x01\x01\x12-\n" +
-	"\x10block_lan_access\x18\x18 \x01(\bH\rR\x0eblockLanAccess\x88\x01\x01\x128\n" +
-	"\x15disable_notifications\x18\x19 \x01(\bH\x0eR\x14disableNotifications\x88\x01\x01\x12\x1d\n" +
+	"\x10disable_firewall\x18\x17 \x01(\bH\rR\x0fdisableFirewall\x88\x01\x01\x12-\n" +
+	"\x10block_lan_access\x18\x18 \x01(\bH\x0eR\x0eblockLanAccess\x88\x01\x01\x128\n" +
+	"\x15disable_notifications\x18\x19 \x01(\bH\x0fR\x14disableNotifications\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"dns_labels\x18\x1a \x03(\tR\tdnsLabels\x12&\n" +
 	"\x0ecleanDNSLabels\x18\x1b \x01(\bR\x0ecleanDNSLabels\x129\n" +
-	"\x15lazyConnectionEnabled\x18\x1c \x01(\bH\x0fR\x15lazyConnectionEnabled\x88\x01\x01\x12(\n" +
-	"\rblock_inbound\x18\x1d \x01(\bH\x10R\fblockInbound\x88\x01\x01\x12%\n" +
-	"\vprofileName\x18\x1e \x01(\tH\x11R\vprofileName\x88\x01\x01\x12\x1f\n" +
-	"\busername\x18\x1f \x01(\tH\x12R\busername\x88\x01\x01\x12\x15\n" +
-	"\x03mtu\x18  \x01(\x03H\x13R\x03mtu\x88\x01\x01\x12\x17\n" +
-	"\x04hint\x18! \x01(\tH\x14R\x04hint\x88\x01\x01\x12)\n" +
-	"\renableSSHRoot\x18\" \x01(\bH\x15R\renableSSHRoot\x88\x01\x01\x12)\n" +
-	"\renableSSHSFTP\x18# \x01(\bH\x16R\renableSSHSFTP\x88\x01\x01\x12G\n" +
-	"\x1cenableSSHLocalPortForwarding\x18$ \x01(\bH\x17R\x1cenableSSHLocalPortForwarding\x88\x01\x01\x12I\n" +
-	"\x1denableSSHRemotePortForwarding\x18% \x01(\bH\x18R\x1denableSSHRemotePortForwarding\x88\x01\x01\x12+\n" +
-	"\x0edisableSSHAuth\x18& \x01(\bH\x19R\x0edisableSSHAuth\x88\x01\x01\x12+\n" +
-	"\x0esshJWTCacheTTL\x18' \x01(\x05H\x1aR\x0esshJWTCacheTTL\x88\x01\x01\x12&\n" +
-	"\fdisable_ipv6\x18( \x01(\bH\x1bR\vdisableIpv6\x88\x01\x01\x125\n" +
-	"\x14enable_local_metrics\x18) \x01(\bH\x1cR\x12enableLocalMetrics\x88\x01\x01\x127\n" +
-	"\x15local_metrics_address\x18* \x01(\tH\x1dR\x13localMetricsAddress\x88\x01\x01\x121\n" +
-	"\x11remoteJobsAllowed\x18+ \x01(\bH\x1eR\x11remoteJobsAllowed\x88\x01\x01\x123\n" +
-	"\x12sshSessionRecorder\x18, \x01(\tH\x1fR\x12sshSessionRecorder\x88\x01\x01\x129\n" +
-	"\x15disableRecorderBanner\x18- \x01(\bH R\x15disableRecorderBanner\x88\x01\x01B\x13\n" +
+	"\x15lazyConnectionEnabled\x18\x1c \x01(\bH\x10R\x15lazyConnectionEnabled\x88\x01\x01\x12(\n" +
+	"\rblock_inbound\x18\x1d \x01(\bH\x11R\fblockInbound\x88\x01\x01\x12%\n" +
+	"\vprofileName\x18\x1e \x01(\tH\x12R\vprofileName\x88\x01\x01\x12\x1f\n" +
+	"\busername\x18\x1f \x01(\tH\x13R\busername\x88\x01\x01\x12\x15\n" +
+	"\x03mtu\x18  \x01(\x03H\x14R\x03mtu\x88\x01\x01\x12\x17\n" +
+	"\x04hint\x18! \x01(\tH\x15R\x04hint\x88\x01\x01\x12)\n" +
+	"\renableSSHRoot\x18\" \x01(\bH\x16R\renableSSHRoot\x88\x01\x01\x12)\n" +
+	"\renableSSHSFTP\x18# \x01(\bH\x17R\renableSSHSFTP\x88\x01\x01\x12G\n" +
+	"\x1cenableSSHLocalPortForwarding\x18$ \x01(\bH\x18R\x1cenableSSHLocalPortForwarding\x88\x01\x01\x12I\n" +
+	"\x1denableSSHRemotePortForwarding\x18% \x01(\bH\x19R\x1denableSSHRemotePortForwarding\x88\x01\x01\x12+\n" +
+	"\x0edisableSSHAuth\x18& \x01(\bH\x1aR\x0edisableSSHAuth\x88\x01\x01\x12+\n" +
+	"\x0esshJWTCacheTTL\x18' \x01(\x05H\x1bR\x0esshJWTCacheTTL\x88\x01\x01\x12&\n" +
+	"\fdisable_ipv6\x18( \x01(\bH\x1cR\vdisableIpv6\x88\x01\x01\x125\n" +
+	"\x14enable_local_metrics\x18) \x01(\bH\x1dR\x12enableLocalMetrics\x88\x01\x01\x127\n" +
+	"\x15local_metrics_address\x18* \x01(\tH\x1eR\x13localMetricsAddress\x88\x01\x01\x121\n" +
+	"\x11remoteJobsAllowed\x18+ \x01(\bH\x1fR\x11remoteJobsAllowed\x88\x01\x01\x123\n" +
+	"\x12sshSessionRecorder\x18, \x01(\tH R\x12sshSessionRecorder\x88\x01\x01\x129\n" +
+	"\x15disableRecorderBanner\x18- \x01(\bH!R\x15disableRecorderBanner\x88\x01\x01B\x13\n" +
 	"\x11_rosenpassEnabledB\x10\n" +
 	"\x0e_interfaceNameB\x10\n" +
 	"\x0e_wireguardPortB\x17\n" +
 	"\x15_optionalPreSharedKeyB\x15\n" +
 	"\x13_disableAutoConnectB\x13\n" +
-	"\x11_serverSSHAllowedB\x16\n" +
+	"\x11_serverSSHAllowedB\x10\n" +
+	"\x0e_allowBirdDropB\x16\n" +
 	"\x14_rosenpassPermissiveB\x11\n" +
 	"\x0f_networkMonitorB\x13\n" +
 	"\x11_dnsRouteIntervalB\x18\n" +
@@ -7792,7 +8500,7 @@ const file_daemon_proto_rawDesc = "" +
 	"\fportForwards\x18\x05 \x03(\tR\fportForwards\"^\n" +
 	"\x0eSSHServerState\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x122\n" +
-	"\bsessions\x18\x02 \x03(\v2\x16.daemon.SSHSessionInfoR\bsessions\"\xdf\x04\n" +
+	"\bsessions\x18\x02 \x03(\v2\x16.daemon.SSHSessionInfoR\bsessions\"\x89\x05\n" +
 	"\n" +
 	"FullStatus\x12A\n" +
 	"\x0fmanagementState\x18\x01 \x01(\v2\x17.daemon.ManagementStateR\x0fmanagementState\x125\n" +
@@ -7807,7 +8515,8 @@ const file_daemon_proto_rawDesc = "" +
 	"\x15lazyConnectionEnabled\x18\t \x01(\bR\x15lazyConnectionEnabled\x12>\n" +
 	"\x0esshServerState\x18\n" +
 	" \x01(\v2\x16.daemon.SSHServerStateR\x0esshServerState\x12*\n" +
-	"\x10networksRevision\x18\v \x01(\x04R\x10networksRevision\"\x15\n" +
+	"\x10networksRevision\x18\v \x01(\x04R\x10networksRevision\x12(\n" +
+	"\x0fbirddropEnabled\x18\f \x01(\bR\x0fbirddropEnabled\"\x15\n" +
 	"\x13ListNetworksRequest\"?\n" +
 	"\x14ListNetworksResponse\x12'\n" +
 	"\x06routes\x18\x01 \x03(\v2\x0f.daemon.NetworkR\x06routes\"a\n" +
@@ -7956,7 +8665,7 @@ const file_daemon_proto_rawDesc = "" +
 	"\f_profileNameB\v\n" +
 	"\t_username\"'\n" +
 	"\x15SwitchProfileResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xa5\x14\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xe2\x14\n" +
 	"\x10SetConfigRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12 \n" +
 	"\vprofileName\x18\x02 \x01(\tR\vprofileName\x12$\n" +
@@ -7968,19 +8677,20 @@ const file_daemon_proto_rawDesc = "" +
 	"\x14optionalPreSharedKey\x18\b \x01(\tH\x03R\x14optionalPreSharedKey\x88\x01\x01\x123\n" +
 	"\x12disableAutoConnect\x18\t \x01(\bH\x04R\x12disableAutoConnect\x88\x01\x01\x12/\n" +
 	"\x10serverSSHAllowed\x18\n" +
-	" \x01(\bH\x05R\x10serverSSHAllowed\x88\x01\x01\x125\n" +
-	"\x13rosenpassPermissive\x18\v \x01(\bH\x06R\x13rosenpassPermissive\x88\x01\x01\x12+\n" +
-	"\x0enetworkMonitor\x18\f \x01(\bH\aR\x0enetworkMonitor\x88\x01\x01\x127\n" +
-	"\x15disable_client_routes\x18\r \x01(\bH\bR\x13disableClientRoutes\x88\x01\x01\x127\n" +
-	"\x15disable_server_routes\x18\x0e \x01(\bH\tR\x13disableServerRoutes\x88\x01\x01\x12$\n" +
-	"\vdisable_dns\x18\x0f \x01(\bH\n" +
-	"R\n" +
+	" \x01(\bH\x05R\x10serverSSHAllowed\x88\x01\x01\x12)\n" +
+	"\rallowBirdDrop\x18) \x01(\bH\x06R\rallowBirdDrop\x88\x01\x01\x125\n" +
+	"\x13rosenpassPermissive\x18\v \x01(\bH\aR\x13rosenpassPermissive\x88\x01\x01\x12+\n" +
+	"\x0enetworkMonitor\x18\f \x01(\bH\bR\x0enetworkMonitor\x88\x01\x01\x127\n" +
+	"\x15disable_client_routes\x18\r \x01(\bH\tR\x13disableClientRoutes\x88\x01\x01\x127\n" +
+	"\x15disable_server_routes\x18\x0e \x01(\bH\n" +
+	"R\x13disableServerRoutes\x88\x01\x01\x12$\n" +
+	"\vdisable_dns\x18\x0f \x01(\bH\vR\n" +
 	"disableDns\x88\x01\x01\x12.\n" +
-	"\x10disable_firewall\x18\x10 \x01(\bH\vR\x0fdisableFirewall\x88\x01\x01\x12-\n" +
-	"\x10block_lan_access\x18\x11 \x01(\bH\fR\x0eblockLanAccess\x88\x01\x01\x128\n" +
-	"\x15disable_notifications\x18\x12 \x01(\bH\rR\x14disableNotifications\x88\x01\x01\x129\n" +
-	"\x15lazyConnectionEnabled\x18\x13 \x01(\bH\x0eR\x15lazyConnectionEnabled\x88\x01\x01\x12(\n" +
-	"\rblock_inbound\x18\x14 \x01(\bH\x0fR\fblockInbound\x88\x01\x01\x12&\n" +
+	"\x10disable_firewall\x18\x10 \x01(\bH\fR\x0fdisableFirewall\x88\x01\x01\x12-\n" +
+	"\x10block_lan_access\x18\x11 \x01(\bH\rR\x0eblockLanAccess\x88\x01\x01\x128\n" +
+	"\x15disable_notifications\x18\x12 \x01(\bH\x0eR\x14disableNotifications\x88\x01\x01\x129\n" +
+	"\x15lazyConnectionEnabled\x18\x13 \x01(\bH\x0fR\x15lazyConnectionEnabled\x88\x01\x01\x12(\n" +
+	"\rblock_inbound\x18\x14 \x01(\bH\x10R\fblockInbound\x88\x01\x01\x12&\n" +
 	"\x0enatExternalIPs\x18\x15 \x03(\tR\x0enatExternalIPs\x120\n" +
 	"\x13cleanNATExternalIPs\x18\x16 \x01(\bR\x13cleanNATExternalIPs\x12*\n" +
 	"\x10customDNSAddress\x18\x17 \x01(\fR\x10customDNSAddress\x120\n" +
@@ -7988,26 +8698,27 @@ const file_daemon_proto_rawDesc = "" +
 	"\n" +
 	"dns_labels\x18\x19 \x03(\tR\tdnsLabels\x12&\n" +
 	"\x0ecleanDNSLabels\x18\x1a \x01(\bR\x0ecleanDNSLabels\x12J\n" +
-	"\x10dnsRouteInterval\x18\x1b \x01(\v2\x19.google.protobuf.DurationH\x10R\x10dnsRouteInterval\x88\x01\x01\x12\x15\n" +
-	"\x03mtu\x18\x1c \x01(\x03H\x11R\x03mtu\x88\x01\x01\x12)\n" +
-	"\renableSSHRoot\x18\x1d \x01(\bH\x12R\renableSSHRoot\x88\x01\x01\x12)\n" +
-	"\renableSSHSFTP\x18\x1e \x01(\bH\x13R\renableSSHSFTP\x88\x01\x01\x12G\n" +
-	"\x1cenableSSHLocalPortForwarding\x18\x1f \x01(\bH\x14R\x1cenableSSHLocalPortForwarding\x88\x01\x01\x12I\n" +
-	"\x1denableSSHRemotePortForwarding\x18  \x01(\bH\x15R\x1denableSSHRemotePortForwarding\x88\x01\x01\x12+\n" +
-	"\x0edisableSSHAuth\x18! \x01(\bH\x16R\x0edisableSSHAuth\x88\x01\x01\x12+\n" +
-	"\x0esshJWTCacheTTL\x18\" \x01(\x05H\x17R\x0esshJWTCacheTTL\x88\x01\x01\x12&\n" +
-	"\fdisable_ipv6\x18# \x01(\bH\x18R\vdisableIpv6\x88\x01\x01\x125\n" +
-	"\x14enable_local_metrics\x18$ \x01(\bH\x19R\x12enableLocalMetrics\x88\x01\x01\x127\n" +
-	"\x15local_metrics_address\x18% \x01(\tH\x1aR\x13localMetricsAddress\x88\x01\x01\x121\n" +
-	"\x11remoteJobsAllowed\x18& \x01(\bH\x1bR\x11remoteJobsAllowed\x88\x01\x01\x123\n" +
-	"\x12sshSessionRecorder\x18' \x01(\tH\x1cR\x12sshSessionRecorder\x88\x01\x01\x129\n" +
-	"\x15disableRecorderBanner\x18( \x01(\bH\x1dR\x15disableRecorderBanner\x88\x01\x01B\x13\n" +
+	"\x10dnsRouteInterval\x18\x1b \x01(\v2\x19.google.protobuf.DurationH\x11R\x10dnsRouteInterval\x88\x01\x01\x12\x15\n" +
+	"\x03mtu\x18\x1c \x01(\x03H\x12R\x03mtu\x88\x01\x01\x12)\n" +
+	"\renableSSHRoot\x18\x1d \x01(\bH\x13R\renableSSHRoot\x88\x01\x01\x12)\n" +
+	"\renableSSHSFTP\x18\x1e \x01(\bH\x14R\renableSSHSFTP\x88\x01\x01\x12G\n" +
+	"\x1cenableSSHLocalPortForwarding\x18\x1f \x01(\bH\x15R\x1cenableSSHLocalPortForwarding\x88\x01\x01\x12I\n" +
+	"\x1denableSSHRemotePortForwarding\x18  \x01(\bH\x16R\x1denableSSHRemotePortForwarding\x88\x01\x01\x12+\n" +
+	"\x0edisableSSHAuth\x18! \x01(\bH\x17R\x0edisableSSHAuth\x88\x01\x01\x12+\n" +
+	"\x0esshJWTCacheTTL\x18\" \x01(\x05H\x18R\x0esshJWTCacheTTL\x88\x01\x01\x12&\n" +
+	"\fdisable_ipv6\x18# \x01(\bH\x19R\vdisableIpv6\x88\x01\x01\x125\n" +
+	"\x14enable_local_metrics\x18$ \x01(\bH\x1aR\x12enableLocalMetrics\x88\x01\x01\x127\n" +
+	"\x15local_metrics_address\x18% \x01(\tH\x1bR\x13localMetricsAddress\x88\x01\x01\x121\n" +
+	"\x11remoteJobsAllowed\x18& \x01(\bH\x1cR\x11remoteJobsAllowed\x88\x01\x01\x123\n" +
+	"\x12sshSessionRecorder\x18' \x01(\tH\x1dR\x12sshSessionRecorder\x88\x01\x01\x129\n" +
+	"\x15disableRecorderBanner\x18( \x01(\bH\x1eR\x15disableRecorderBanner\x88\x01\x01B\x13\n" +
 	"\x11_rosenpassEnabledB\x10\n" +
 	"\x0e_interfaceNameB\x10\n" +
 	"\x0e_wireguardPortB\x17\n" +
 	"\x15_optionalPreSharedKeyB\x15\n" +
 	"\x13_disableAutoConnectB\x13\n" +
-	"\x11_serverSSHAllowedB\x16\n" +
+	"\x11_serverSSHAllowedB\x10\n" +
+	"\x0e_allowBirdDropB\x16\n" +
 	"\x14_rosenpassPermissiveB\x11\n" +
 	"\x0f_networkMonitorB\x18\n" +
 	"\x16_disable_client_routesB\x18\n" +
@@ -8211,7 +8922,55 @@ const file_daemon_proto_rawDesc = "" +
 	"\atimeout\x18\x01 \x01(\v2\x19.google.protobuf.DurationR\atimeout\"\x1c\n" +
 	"\x1aStartBundleCaptureResponse\"\x1a\n" +
 	"\x18StopBundleCaptureRequest\"\x1b\n" +
-	"\x19StopBundleCaptureResponse*b\n" +
+	"\x19StopBundleCaptureResponse\"\xbe\x01\n" +
+	"\x13BirddropSendRequest\x12\x12\n" +
+	"\x04peer\x18\x01 \x01(\tR\x04peer\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12'\n" +
+	"\x0ftimeout_seconds\x18\x03 \x01(\x03R\x0etimeoutSeconds\x12/\n" +
+	"\x04type\x18\x04 \x01(\x0e2\x1b.daemon.BirddropPayloadTypeR\x04type\x12%\n" +
+	"\x0eclipboard_text\x18\x05 \x01(\tR\rclipboardText\"\x8d\x02\n" +
+	"\x11BirddropSendEvent\x12\x14\n" +
+	"\x05state\x18\x01 \x01(\tR\x05state\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x15\n" +
+	"\x06is_dir\x18\x03 \x01(\bR\x05isDir\x12 \n" +
+	"\vtransferred\x18\x04 \x01(\x03R\vtransferred\x12\x14\n" +
+	"\x05total\x18\x05 \x01(\x03R\x05total\x12\x1b\n" +
+	"\tpeer_fqdn\x18\x06 \x01(\tR\bpeerFqdn\x12\x17\n" +
+	"\apeer_ip\x18\a \x01(\tR\x06peerIp\x12\x18\n" +
+	"\amessage\x18\b \x01(\tR\amessage\x12/\n" +
+	"\x04type\x18\t \x01(\x0e2\x1b.daemon.BirddropPayloadTypeR\x04type\"\x15\n" +
+	"\x13BirddropListRequest\"\xc8\x01\n" +
+	"\rBirddropOffer\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04from\x18\x03 \x01(\tR\x04from\x12\x12\n" +
+	"\x04size\x18\x04 \x01(\x03R\x04size\x12\x15\n" +
+	"\x06is_dir\x18\x05 \x01(\bR\x05isDir\x12#\n" +
+	"\rreceived_unix\x18\a \x01(\x03R\freceivedUnix\x12/\n" +
+	"\x04type\x18\b \x01(\x0e2\x1b.daemon.BirddropPayloadTypeR\x04type\"C\n" +
+	"\x14BirddropListResponse\x12+\n" +
+	"\x05items\x18\x01 \x03(\v2\x15.daemon.BirddropOfferR\x05items\">\n" +
+	"\x16BirddropReceiveRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12\x12\n" +
+	"\x04dest\x18\x02 \x01(\tR\x04dest\")\n" +
+	"\x15BirddropRejectRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\"4\n" +
+	"\x16BirddropRejectResponse\x12\x1a\n" +
+	"\brejected\x18\x01 \x01(\x05R\brejected\"\xd8\x02\n" +
+	"\x14BirddropReceiveEvent\x12\x14\n" +
+	"\x05state\x18\x01 \x01(\tR\x05state\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vtransferred\x18\x04 \x01(\x03R\vtransferred\x12\x14\n" +
+	"\x05total\x18\x05 \x01(\x03R\x05total\x12\x19\n" +
+	"\bsaved_as\x18\x06 \x01(\tR\asavedAs\x12\x14\n" +
+	"\x05bytes\x18\a \x01(\x03R\x05bytes\x12\x15\n" +
+	"\x06is_dir\x18\b \x01(\bR\x05isDir\x12\x18\n" +
+	"\amessage\x18\t \x01(\tR\amessage\x12\x14\n" +
+	"\x05files\x18\n" +
+	" \x01(\x05R\x05files\x12/\n" +
+	"\x04type\x18\v \x01(\x0e2\x1b.daemon.BirddropPayloadTypeR\x04type\x12%\n" +
+	"\x0eclipboard_text\x18\f \x01(\tR\rclipboardText*b\n" +
 	"\bLogLevel\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\t\n" +
 	"\x05PANIC\x10\x01\x12\t\n" +
@@ -8229,14 +8988,23 @@ const file_daemon_proto_rawDesc = "" +
 	"\n" +
 	"EXPOSE_UDP\x10\x03\x12\x0e\n" +
 	"\n" +
-	"EXPOSE_TLS\x10\x042\xbd\x1e\n" +
+	"EXPOSE_TLS\x10\x04*\xa6\x01\n" +
+	"\x13BirddropPayloadType\x12%\n" +
+	"!BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aBIRDDROP_PAYLOAD_TYPE_FILE\x10\x01\x12#\n" +
+	"\x1fBIRDDROP_PAYLOAD_TYPE_DIRECTORY\x10\x02\x12#\n" +
+	"\x1fBIRDDROP_PAYLOAD_TYPE_CLIPBOARD\x10\x032\xfe \n" +
 	"\rDaemonService\x126\n" +
 	"\x05Login\x12\x14.daemon.LoginRequest\x1a\x15.daemon.LoginResponse\"\x00\x12K\n" +
 	"\fWaitSSOLogin\x12\x1b.daemon.WaitSSOLoginRequest\x1a\x1c.daemon.WaitSSOLoginResponse\"\x00\x12-\n" +
 	"\x02Up\x12\x11.daemon.UpRequest\x1a\x12.daemon.UpResponse\"\x00\x129\n" +
 	"\x06Status\x12\x15.daemon.StatusRequest\x1a\x16.daemon.StatusResponse\"\x00\x12D\n" +
 	"\x0fSubscribeStatus\x12\x15.daemon.StatusRequest\x1a\x16.daemon.StatusResponse\"\x000\x01\x123\n" +
-	"\x04Down\x12\x13.daemon.DownRequest\x1a\x14.daemon.DownResponse\"\x00\x12B\n" +
+	"\x04Down\x12\x13.daemon.DownRequest\x1a\x14.daemon.DownResponse\"\x00\x12J\n" +
+	"\fBirddropSend\x12\x1b.daemon.BirddropSendRequest\x1a\x19.daemon.BirddropSendEvent\"\x000\x01\x12K\n" +
+	"\fBirddropList\x12\x1b.daemon.BirddropListRequest\x1a\x1c.daemon.BirddropListResponse\"\x00\x12S\n" +
+	"\x0fBirddropReceive\x12\x1e.daemon.BirddropReceiveRequest\x1a\x1c.daemon.BirddropReceiveEvent\"\x000\x01\x12Q\n" +
+	"\x0eBirddropReject\x12\x1d.daemon.BirddropRejectRequest\x1a\x1e.daemon.BirddropRejectResponse\"\x00\x12B\n" +
 	"\tGetConfig\x12\x18.daemon.GetConfigRequest\x1a\x19.daemon.GetConfigResponse\"\x00\x12K\n" +
 	"\fListNetworks\x12\x1b.daemon.ListNetworksRequest\x1a\x1c.daemon.ListNetworksResponse\"\x00\x12Q\n" +
 	"\x0eSelectNetworks\x12\x1d.daemon.SelectNetworksRequest\x1a\x1e.daemon.SelectNetworksResponse\"\x00\x12S\n" +
@@ -8296,280 +9064,303 @@ func file_daemon_proto_rawDescGZIP() []byte {
 	return file_daemon_proto_rawDescData
 }
 
-var file_daemon_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 118)
+var file_daemon_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_daemon_proto_msgTypes = make([]protoimpl.MessageInfo, 127)
 var file_daemon_proto_goTypes = []any{
 	(LogLevel)(0),                              // 0: daemon.LogLevel
 	(ExposeProtocol)(0),                        // 1: daemon.ExposeProtocol
-	(SystemEvent_Severity)(0),                  // 2: daemon.SystemEvent.Severity
-	(SystemEvent_Category)(0),                  // 3: daemon.SystemEvent.Category
-	(*EmptyRequest)(nil),                       // 4: daemon.EmptyRequest
-	(*LoginRequest)(nil),                       // 5: daemon.LoginRequest
-	(*LoginResponse)(nil),                      // 6: daemon.LoginResponse
-	(*WaitSSOLoginRequest)(nil),                // 7: daemon.WaitSSOLoginRequest
-	(*WaitSSOLoginResponse)(nil),               // 8: daemon.WaitSSOLoginResponse
-	(*UpRequest)(nil),                          // 9: daemon.UpRequest
-	(*UpResponse)(nil),                         // 10: daemon.UpResponse
-	(*StatusRequest)(nil),                      // 11: daemon.StatusRequest
-	(*StatusResponse)(nil),                     // 12: daemon.StatusResponse
-	(*DownRequest)(nil),                        // 13: daemon.DownRequest
-	(*DownResponse)(nil),                       // 14: daemon.DownResponse
-	(*GetConfigRequest)(nil),                   // 15: daemon.GetConfigRequest
-	(*GetConfigResponse)(nil),                  // 16: daemon.GetConfigResponse
-	(*PeerState)(nil),                          // 17: daemon.PeerState
-	(*LocalPeerState)(nil),                     // 18: daemon.LocalPeerState
-	(*SignalState)(nil),                        // 19: daemon.SignalState
-	(*ManagementState)(nil),                    // 20: daemon.ManagementState
-	(*RelayState)(nil),                         // 21: daemon.RelayState
-	(*NSGroupState)(nil),                       // 22: daemon.NSGroupState
-	(*SSHSessionInfo)(nil),                     // 23: daemon.SSHSessionInfo
-	(*SSHServerState)(nil),                     // 24: daemon.SSHServerState
-	(*FullStatus)(nil),                         // 25: daemon.FullStatus
-	(*ListNetworksRequest)(nil),                // 26: daemon.ListNetworksRequest
-	(*ListNetworksResponse)(nil),               // 27: daemon.ListNetworksResponse
-	(*SelectNetworksRequest)(nil),              // 28: daemon.SelectNetworksRequest
-	(*SelectNetworksResponse)(nil),             // 29: daemon.SelectNetworksResponse
-	(*IPList)(nil),                             // 30: daemon.IPList
-	(*Network)(nil),                            // 31: daemon.Network
-	(*PortInfo)(nil),                           // 32: daemon.PortInfo
-	(*ForwardingRule)(nil),                     // 33: daemon.ForwardingRule
-	(*ForwardingRulesResponse)(nil),            // 34: daemon.ForwardingRulesResponse
-	(*DebugBundleRequest)(nil),                 // 35: daemon.DebugBundleRequest
-	(*DebugBundleResponse)(nil),                // 36: daemon.DebugBundleResponse
-	(*GetLogLevelRequest)(nil),                 // 37: daemon.GetLogLevelRequest
-	(*GetLogLevelResponse)(nil),                // 38: daemon.GetLogLevelResponse
-	(*SetLogLevelRequest)(nil),                 // 39: daemon.SetLogLevelRequest
-	(*SetLogLevelResponse)(nil),                // 40: daemon.SetLogLevelResponse
-	(*RegisterUILogRequest)(nil),               // 41: daemon.RegisterUILogRequest
-	(*RegisterUILogResponse)(nil),              // 42: daemon.RegisterUILogResponse
-	(*State)(nil),                              // 43: daemon.State
-	(*ListStatesRequest)(nil),                  // 44: daemon.ListStatesRequest
-	(*ListStatesResponse)(nil),                 // 45: daemon.ListStatesResponse
-	(*CleanStateRequest)(nil),                  // 46: daemon.CleanStateRequest
-	(*CleanStateResponse)(nil),                 // 47: daemon.CleanStateResponse
-	(*DeleteStateRequest)(nil),                 // 48: daemon.DeleteStateRequest
-	(*DeleteStateResponse)(nil),                // 49: daemon.DeleteStateResponse
-	(*SetSyncResponsePersistenceRequest)(nil),  // 50: daemon.SetSyncResponsePersistenceRequest
-	(*SetSyncResponsePersistenceResponse)(nil), // 51: daemon.SetSyncResponsePersistenceResponse
-	(*TCPFlags)(nil),                           // 52: daemon.TCPFlags
-	(*TracePacketRequest)(nil),                 // 53: daemon.TracePacketRequest
-	(*TraceStage)(nil),                         // 54: daemon.TraceStage
-	(*TracePacketResponse)(nil),                // 55: daemon.TracePacketResponse
-	(*SubscribeRequest)(nil),                   // 56: daemon.SubscribeRequest
-	(*SystemEvent)(nil),                        // 57: daemon.SystemEvent
-	(*GetEventsRequest)(nil),                   // 58: daemon.GetEventsRequest
-	(*GetEventsResponse)(nil),                  // 59: daemon.GetEventsResponse
-	(*SwitchProfileRequest)(nil),               // 60: daemon.SwitchProfileRequest
-	(*SwitchProfileResponse)(nil),              // 61: daemon.SwitchProfileResponse
-	(*SetConfigRequest)(nil),                   // 62: daemon.SetConfigRequest
-	(*SetConfigResponse)(nil),                  // 63: daemon.SetConfigResponse
-	(*AddProfileRequest)(nil),                  // 64: daemon.AddProfileRequest
-	(*AddProfileResponse)(nil),                 // 65: daemon.AddProfileResponse
-	(*RenameProfileRequest)(nil),               // 66: daemon.RenameProfileRequest
-	(*RenameProfileResponse)(nil),              // 67: daemon.RenameProfileResponse
-	(*RemoveProfileRequest)(nil),               // 68: daemon.RemoveProfileRequest
-	(*RemoveProfileResponse)(nil),              // 69: daemon.RemoveProfileResponse
-	(*ClaimProfileRequest)(nil),                // 70: daemon.ClaimProfileRequest
-	(*ClaimProfileResponse)(nil),               // 71: daemon.ClaimProfileResponse
-	(*ListProfilesRequest)(nil),                // 72: daemon.ListProfilesRequest
-	(*ListProfilesResponse)(nil),               // 73: daemon.ListProfilesResponse
-	(*Profile)(nil),                            // 74: daemon.Profile
-	(*GetActiveProfileRequest)(nil),            // 75: daemon.GetActiveProfileRequest
-	(*GetActiveProfileResponse)(nil),           // 76: daemon.GetActiveProfileResponse
-	(*LogoutRequest)(nil),                      // 77: daemon.LogoutRequest
-	(*LogoutResponse)(nil),                     // 78: daemon.LogoutResponse
-	(*WailsUIReadyRequest)(nil),                // 79: daemon.WailsUIReadyRequest
-	(*WailsUIReadyResponse)(nil),               // 80: daemon.WailsUIReadyResponse
-	(*GetFeaturesRequest)(nil),                 // 81: daemon.GetFeaturesRequest
-	(*GetFeaturesResponse)(nil),                // 82: daemon.GetFeaturesResponse
-	(*MDMManagedFieldsViolation)(nil),          // 83: daemon.MDMManagedFieldsViolation
-	(*TriggerUpdateRequest)(nil),               // 84: daemon.TriggerUpdateRequest
-	(*TriggerUpdateResponse)(nil),              // 85: daemon.TriggerUpdateResponse
-	(*GetPeerSSHHostKeyRequest)(nil),           // 86: daemon.GetPeerSSHHostKeyRequest
-	(*GetPeerSSHHostKeyResponse)(nil),          // 87: daemon.GetPeerSSHHostKeyResponse
-	(*RequestJWTAuthRequest)(nil),              // 88: daemon.RequestJWTAuthRequest
-	(*RequestJWTAuthResponse)(nil),             // 89: daemon.RequestJWTAuthResponse
-	(*WaitJWTTokenRequest)(nil),                // 90: daemon.WaitJWTTokenRequest
-	(*WaitJWTTokenResponse)(nil),               // 91: daemon.WaitJWTTokenResponse
-	(*RequestExtendAuthSessionRequest)(nil),    // 92: daemon.RequestExtendAuthSessionRequest
-	(*RequestExtendAuthSessionResponse)(nil),   // 93: daemon.RequestExtendAuthSessionResponse
-	(*WaitExtendAuthSessionRequest)(nil),       // 94: daemon.WaitExtendAuthSessionRequest
-	(*WaitExtendAuthSessionResponse)(nil),      // 95: daemon.WaitExtendAuthSessionResponse
-	(*GetCloudCredentialsRequest)(nil),         // 96: daemon.GetCloudCredentialsRequest
-	(*GetCloudCredentialsResponse)(nil),        // 97: daemon.GetCloudCredentialsResponse
-	(*ListCloudIntegrationsRequest)(nil),       // 98: daemon.ListCloudIntegrationsRequest
-	(*ListCloudIntegrationsResponse)(nil),      // 99: daemon.ListCloudIntegrationsResponse
-	(*CloudIntegrationSummary)(nil),            // 100: daemon.CloudIntegrationSummary
-	(*DismissSessionWarningRequest)(nil),       // 101: daemon.DismissSessionWarningRequest
-	(*DismissSessionWarningResponse)(nil),      // 102: daemon.DismissSessionWarningResponse
-	(*StartCPUProfileRequest)(nil),             // 103: daemon.StartCPUProfileRequest
-	(*StartCPUProfileResponse)(nil),            // 104: daemon.StartCPUProfileResponse
-	(*StopCPUProfileRequest)(nil),              // 105: daemon.StopCPUProfileRequest
-	(*StopCPUProfileResponse)(nil),             // 106: daemon.StopCPUProfileResponse
-	(*InstallerResultRequest)(nil),             // 107: daemon.InstallerResultRequest
-	(*InstallerResultResponse)(nil),            // 108: daemon.InstallerResultResponse
-	(*ExposeServiceRequest)(nil),               // 109: daemon.ExposeServiceRequest
-	(*ExposeServiceEvent)(nil),                 // 110: daemon.ExposeServiceEvent
-	(*ExposeServiceReady)(nil),                 // 111: daemon.ExposeServiceReady
-	(*StartCaptureRequest)(nil),                // 112: daemon.StartCaptureRequest
-	(*CapturePacket)(nil),                      // 113: daemon.CapturePacket
-	(*StartBundleCaptureRequest)(nil),          // 114: daemon.StartBundleCaptureRequest
-	(*StartBundleCaptureResponse)(nil),         // 115: daemon.StartBundleCaptureResponse
-	(*StopBundleCaptureRequest)(nil),           // 116: daemon.StopBundleCaptureRequest
-	(*StopBundleCaptureResponse)(nil),          // 117: daemon.StopBundleCaptureResponse
-	nil,                                        // 118: daemon.Network.ResolvedIPsEntry
-	(*PortInfo_Range)(nil),                     // 119: daemon.PortInfo.Range
-	nil,                                        // 120: daemon.SystemEvent.MetadataEntry
-	nil,                                        // 121: daemon.GetCloudCredentialsResponse.CredentialsEntry
-	(*durationpb.Duration)(nil),                // 122: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil),              // 123: google.protobuf.Timestamp
+	(BirddropPayloadType)(0),                   // 2: daemon.BirddropPayloadType
+	(SystemEvent_Severity)(0),                  // 3: daemon.SystemEvent.Severity
+	(SystemEvent_Category)(0),                  // 4: daemon.SystemEvent.Category
+	(*EmptyRequest)(nil),                       // 5: daemon.EmptyRequest
+	(*LoginRequest)(nil),                       // 6: daemon.LoginRequest
+	(*LoginResponse)(nil),                      // 7: daemon.LoginResponse
+	(*WaitSSOLoginRequest)(nil),                // 8: daemon.WaitSSOLoginRequest
+	(*WaitSSOLoginResponse)(nil),               // 9: daemon.WaitSSOLoginResponse
+	(*UpRequest)(nil),                          // 10: daemon.UpRequest
+	(*UpResponse)(nil),                         // 11: daemon.UpResponse
+	(*StatusRequest)(nil),                      // 12: daemon.StatusRequest
+	(*StatusResponse)(nil),                     // 13: daemon.StatusResponse
+	(*DownRequest)(nil),                        // 14: daemon.DownRequest
+	(*DownResponse)(nil),                       // 15: daemon.DownResponse
+	(*GetConfigRequest)(nil),                   // 16: daemon.GetConfigRequest
+	(*GetConfigResponse)(nil),                  // 17: daemon.GetConfigResponse
+	(*PeerState)(nil),                          // 18: daemon.PeerState
+	(*LocalPeerState)(nil),                     // 19: daemon.LocalPeerState
+	(*SignalState)(nil),                        // 20: daemon.SignalState
+	(*ManagementState)(nil),                    // 21: daemon.ManagementState
+	(*RelayState)(nil),                         // 22: daemon.RelayState
+	(*NSGroupState)(nil),                       // 23: daemon.NSGroupState
+	(*SSHSessionInfo)(nil),                     // 24: daemon.SSHSessionInfo
+	(*SSHServerState)(nil),                     // 25: daemon.SSHServerState
+	(*FullStatus)(nil),                         // 26: daemon.FullStatus
+	(*ListNetworksRequest)(nil),                // 27: daemon.ListNetworksRequest
+	(*ListNetworksResponse)(nil),               // 28: daemon.ListNetworksResponse
+	(*SelectNetworksRequest)(nil),              // 29: daemon.SelectNetworksRequest
+	(*SelectNetworksResponse)(nil),             // 30: daemon.SelectNetworksResponse
+	(*IPList)(nil),                             // 31: daemon.IPList
+	(*Network)(nil),                            // 32: daemon.Network
+	(*PortInfo)(nil),                           // 33: daemon.PortInfo
+	(*ForwardingRule)(nil),                     // 34: daemon.ForwardingRule
+	(*ForwardingRulesResponse)(nil),            // 35: daemon.ForwardingRulesResponse
+	(*DebugBundleRequest)(nil),                 // 36: daemon.DebugBundleRequest
+	(*DebugBundleResponse)(nil),                // 37: daemon.DebugBundleResponse
+	(*GetLogLevelRequest)(nil),                 // 38: daemon.GetLogLevelRequest
+	(*GetLogLevelResponse)(nil),                // 39: daemon.GetLogLevelResponse
+	(*SetLogLevelRequest)(nil),                 // 40: daemon.SetLogLevelRequest
+	(*SetLogLevelResponse)(nil),                // 41: daemon.SetLogLevelResponse
+	(*RegisterUILogRequest)(nil),               // 42: daemon.RegisterUILogRequest
+	(*RegisterUILogResponse)(nil),              // 43: daemon.RegisterUILogResponse
+	(*State)(nil),                              // 44: daemon.State
+	(*ListStatesRequest)(nil),                  // 45: daemon.ListStatesRequest
+	(*ListStatesResponse)(nil),                 // 46: daemon.ListStatesResponse
+	(*CleanStateRequest)(nil),                  // 47: daemon.CleanStateRequest
+	(*CleanStateResponse)(nil),                 // 48: daemon.CleanStateResponse
+	(*DeleteStateRequest)(nil),                 // 49: daemon.DeleteStateRequest
+	(*DeleteStateResponse)(nil),                // 50: daemon.DeleteStateResponse
+	(*SetSyncResponsePersistenceRequest)(nil),  // 51: daemon.SetSyncResponsePersistenceRequest
+	(*SetSyncResponsePersistenceResponse)(nil), // 52: daemon.SetSyncResponsePersistenceResponse
+	(*TCPFlags)(nil),                           // 53: daemon.TCPFlags
+	(*TracePacketRequest)(nil),                 // 54: daemon.TracePacketRequest
+	(*TraceStage)(nil),                         // 55: daemon.TraceStage
+	(*TracePacketResponse)(nil),                // 56: daemon.TracePacketResponse
+	(*SubscribeRequest)(nil),                   // 57: daemon.SubscribeRequest
+	(*SystemEvent)(nil),                        // 58: daemon.SystemEvent
+	(*GetEventsRequest)(nil),                   // 59: daemon.GetEventsRequest
+	(*GetEventsResponse)(nil),                  // 60: daemon.GetEventsResponse
+	(*SwitchProfileRequest)(nil),               // 61: daemon.SwitchProfileRequest
+	(*SwitchProfileResponse)(nil),              // 62: daemon.SwitchProfileResponse
+	(*SetConfigRequest)(nil),                   // 63: daemon.SetConfigRequest
+	(*SetConfigResponse)(nil),                  // 64: daemon.SetConfigResponse
+	(*AddProfileRequest)(nil),                  // 65: daemon.AddProfileRequest
+	(*AddProfileResponse)(nil),                 // 66: daemon.AddProfileResponse
+	(*RenameProfileRequest)(nil),               // 67: daemon.RenameProfileRequest
+	(*RenameProfileResponse)(nil),              // 68: daemon.RenameProfileResponse
+	(*RemoveProfileRequest)(nil),               // 69: daemon.RemoveProfileRequest
+	(*RemoveProfileResponse)(nil),              // 70: daemon.RemoveProfileResponse
+	(*ClaimProfileRequest)(nil),                // 71: daemon.ClaimProfileRequest
+	(*ClaimProfileResponse)(nil),               // 72: daemon.ClaimProfileResponse
+	(*ListProfilesRequest)(nil),                // 73: daemon.ListProfilesRequest
+	(*ListProfilesResponse)(nil),               // 74: daemon.ListProfilesResponse
+	(*Profile)(nil),                            // 75: daemon.Profile
+	(*GetActiveProfileRequest)(nil),            // 76: daemon.GetActiveProfileRequest
+	(*GetActiveProfileResponse)(nil),           // 77: daemon.GetActiveProfileResponse
+	(*LogoutRequest)(nil),                      // 78: daemon.LogoutRequest
+	(*LogoutResponse)(nil),                     // 79: daemon.LogoutResponse
+	(*WailsUIReadyRequest)(nil),                // 80: daemon.WailsUIReadyRequest
+	(*WailsUIReadyResponse)(nil),               // 81: daemon.WailsUIReadyResponse
+	(*GetFeaturesRequest)(nil),                 // 82: daemon.GetFeaturesRequest
+	(*GetFeaturesResponse)(nil),                // 83: daemon.GetFeaturesResponse
+	(*MDMManagedFieldsViolation)(nil),          // 84: daemon.MDMManagedFieldsViolation
+	(*TriggerUpdateRequest)(nil),               // 85: daemon.TriggerUpdateRequest
+	(*TriggerUpdateResponse)(nil),              // 86: daemon.TriggerUpdateResponse
+	(*GetPeerSSHHostKeyRequest)(nil),           // 87: daemon.GetPeerSSHHostKeyRequest
+	(*GetPeerSSHHostKeyResponse)(nil),          // 88: daemon.GetPeerSSHHostKeyResponse
+	(*RequestJWTAuthRequest)(nil),              // 89: daemon.RequestJWTAuthRequest
+	(*RequestJWTAuthResponse)(nil),             // 90: daemon.RequestJWTAuthResponse
+	(*WaitJWTTokenRequest)(nil),                // 91: daemon.WaitJWTTokenRequest
+	(*WaitJWTTokenResponse)(nil),               // 92: daemon.WaitJWTTokenResponse
+	(*RequestExtendAuthSessionRequest)(nil),    // 93: daemon.RequestExtendAuthSessionRequest
+	(*RequestExtendAuthSessionResponse)(nil),   // 94: daemon.RequestExtendAuthSessionResponse
+	(*WaitExtendAuthSessionRequest)(nil),       // 95: daemon.WaitExtendAuthSessionRequest
+	(*WaitExtendAuthSessionResponse)(nil),      // 96: daemon.WaitExtendAuthSessionResponse
+	(*GetCloudCredentialsRequest)(nil),         // 97: daemon.GetCloudCredentialsRequest
+	(*GetCloudCredentialsResponse)(nil),        // 98: daemon.GetCloudCredentialsResponse
+	(*ListCloudIntegrationsRequest)(nil),       // 99: daemon.ListCloudIntegrationsRequest
+	(*ListCloudIntegrationsResponse)(nil),      // 100: daemon.ListCloudIntegrationsResponse
+	(*CloudIntegrationSummary)(nil),            // 101: daemon.CloudIntegrationSummary
+	(*DismissSessionWarningRequest)(nil),       // 102: daemon.DismissSessionWarningRequest
+	(*DismissSessionWarningResponse)(nil),      // 103: daemon.DismissSessionWarningResponse
+	(*StartCPUProfileRequest)(nil),             // 104: daemon.StartCPUProfileRequest
+	(*StartCPUProfileResponse)(nil),            // 105: daemon.StartCPUProfileResponse
+	(*StopCPUProfileRequest)(nil),              // 106: daemon.StopCPUProfileRequest
+	(*StopCPUProfileResponse)(nil),             // 107: daemon.StopCPUProfileResponse
+	(*InstallerResultRequest)(nil),             // 108: daemon.InstallerResultRequest
+	(*InstallerResultResponse)(nil),            // 109: daemon.InstallerResultResponse
+	(*ExposeServiceRequest)(nil),               // 110: daemon.ExposeServiceRequest
+	(*ExposeServiceEvent)(nil),                 // 111: daemon.ExposeServiceEvent
+	(*ExposeServiceReady)(nil),                 // 112: daemon.ExposeServiceReady
+	(*StartCaptureRequest)(nil),                // 113: daemon.StartCaptureRequest
+	(*CapturePacket)(nil),                      // 114: daemon.CapturePacket
+	(*StartBundleCaptureRequest)(nil),          // 115: daemon.StartBundleCaptureRequest
+	(*StartBundleCaptureResponse)(nil),         // 116: daemon.StartBundleCaptureResponse
+	(*StopBundleCaptureRequest)(nil),           // 117: daemon.StopBundleCaptureRequest
+	(*StopBundleCaptureResponse)(nil),          // 118: daemon.StopBundleCaptureResponse
+	(*BirddropSendRequest)(nil),                // 119: daemon.BirddropSendRequest
+	(*BirddropSendEvent)(nil),                  // 120: daemon.BirddropSendEvent
+	(*BirddropListRequest)(nil),                // 121: daemon.BirddropListRequest
+	(*BirddropOffer)(nil),                      // 122: daemon.BirddropOffer
+	(*BirddropListResponse)(nil),               // 123: daemon.BirddropListResponse
+	(*BirddropReceiveRequest)(nil),             // 124: daemon.BirddropReceiveRequest
+	(*BirddropRejectRequest)(nil),              // 125: daemon.BirddropRejectRequest
+	(*BirddropRejectResponse)(nil),             // 126: daemon.BirddropRejectResponse
+	(*BirddropReceiveEvent)(nil),               // 127: daemon.BirddropReceiveEvent
+	nil,                                        // 128: daemon.Network.ResolvedIPsEntry
+	(*PortInfo_Range)(nil),                     // 129: daemon.PortInfo.Range
+	nil,                                        // 130: daemon.SystemEvent.MetadataEntry
+	nil,                                        // 131: daemon.GetCloudCredentialsResponse.CredentialsEntry
+	(*durationpb.Duration)(nil),                // 132: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil),              // 133: google.protobuf.Timestamp
 }
 var file_daemon_proto_depIdxs = []int32{
-	122, // 0: daemon.LoginRequest.dnsRouteInterval:type_name -> google.protobuf.Duration
-	25,  // 1: daemon.StatusResponse.fullStatus:type_name -> daemon.FullStatus
-	123, // 2: daemon.StatusResponse.sessionExpiresAt:type_name -> google.protobuf.Timestamp
-	123, // 3: daemon.PeerState.connStatusUpdate:type_name -> google.protobuf.Timestamp
-	123, // 4: daemon.PeerState.lastWireguardHandshake:type_name -> google.protobuf.Timestamp
-	122, // 5: daemon.PeerState.latency:type_name -> google.protobuf.Duration
-	23,  // 6: daemon.SSHServerState.sessions:type_name -> daemon.SSHSessionInfo
-	20,  // 7: daemon.FullStatus.managementState:type_name -> daemon.ManagementState
-	19,  // 8: daemon.FullStatus.signalState:type_name -> daemon.SignalState
-	18,  // 9: daemon.FullStatus.localPeerState:type_name -> daemon.LocalPeerState
-	17,  // 10: daemon.FullStatus.peers:type_name -> daemon.PeerState
-	21,  // 11: daemon.FullStatus.relays:type_name -> daemon.RelayState
-	22,  // 12: daemon.FullStatus.dns_servers:type_name -> daemon.NSGroupState
-	57,  // 13: daemon.FullStatus.events:type_name -> daemon.SystemEvent
-	24,  // 14: daemon.FullStatus.sshServerState:type_name -> daemon.SSHServerState
-	31,  // 15: daemon.ListNetworksResponse.routes:type_name -> daemon.Network
-	118, // 16: daemon.Network.resolvedIPs:type_name -> daemon.Network.ResolvedIPsEntry
-	119, // 17: daemon.PortInfo.range:type_name -> daemon.PortInfo.Range
-	32,  // 18: daemon.ForwardingRule.destinationPort:type_name -> daemon.PortInfo
-	32,  // 19: daemon.ForwardingRule.translatedPort:type_name -> daemon.PortInfo
-	33,  // 20: daemon.ForwardingRulesResponse.rules:type_name -> daemon.ForwardingRule
+	132, // 0: daemon.LoginRequest.dnsRouteInterval:type_name -> google.protobuf.Duration
+	26,  // 1: daemon.StatusResponse.fullStatus:type_name -> daemon.FullStatus
+	133, // 2: daemon.StatusResponse.sessionExpiresAt:type_name -> google.protobuf.Timestamp
+	133, // 3: daemon.PeerState.connStatusUpdate:type_name -> google.protobuf.Timestamp
+	133, // 4: daemon.PeerState.lastWireguardHandshake:type_name -> google.protobuf.Timestamp
+	132, // 5: daemon.PeerState.latency:type_name -> google.protobuf.Duration
+	24,  // 6: daemon.SSHServerState.sessions:type_name -> daemon.SSHSessionInfo
+	21,  // 7: daemon.FullStatus.managementState:type_name -> daemon.ManagementState
+	20,  // 8: daemon.FullStatus.signalState:type_name -> daemon.SignalState
+	19,  // 9: daemon.FullStatus.localPeerState:type_name -> daemon.LocalPeerState
+	18,  // 10: daemon.FullStatus.peers:type_name -> daemon.PeerState
+	22,  // 11: daemon.FullStatus.relays:type_name -> daemon.RelayState
+	23,  // 12: daemon.FullStatus.dns_servers:type_name -> daemon.NSGroupState
+	58,  // 13: daemon.FullStatus.events:type_name -> daemon.SystemEvent
+	25,  // 14: daemon.FullStatus.sshServerState:type_name -> daemon.SSHServerState
+	32,  // 15: daemon.ListNetworksResponse.routes:type_name -> daemon.Network
+	128, // 16: daemon.Network.resolvedIPs:type_name -> daemon.Network.ResolvedIPsEntry
+	129, // 17: daemon.PortInfo.range:type_name -> daemon.PortInfo.Range
+	33,  // 18: daemon.ForwardingRule.destinationPort:type_name -> daemon.PortInfo
+	33,  // 19: daemon.ForwardingRule.translatedPort:type_name -> daemon.PortInfo
+	34,  // 20: daemon.ForwardingRulesResponse.rules:type_name -> daemon.ForwardingRule
 	0,   // 21: daemon.GetLogLevelResponse.level:type_name -> daemon.LogLevel
 	0,   // 22: daemon.SetLogLevelRequest.level:type_name -> daemon.LogLevel
-	43,  // 23: daemon.ListStatesResponse.states:type_name -> daemon.State
-	52,  // 24: daemon.TracePacketRequest.tcp_flags:type_name -> daemon.TCPFlags
-	54,  // 25: daemon.TracePacketResponse.stages:type_name -> daemon.TraceStage
-	2,   // 26: daemon.SystemEvent.severity:type_name -> daemon.SystemEvent.Severity
-	3,   // 27: daemon.SystemEvent.category:type_name -> daemon.SystemEvent.Category
-	123, // 28: daemon.SystemEvent.timestamp:type_name -> google.protobuf.Timestamp
-	120, // 29: daemon.SystemEvent.metadata:type_name -> daemon.SystemEvent.MetadataEntry
-	57,  // 30: daemon.GetEventsResponse.events:type_name -> daemon.SystemEvent
-	122, // 31: daemon.SetConfigRequest.dnsRouteInterval:type_name -> google.protobuf.Duration
-	74,  // 32: daemon.ListProfilesResponse.profiles:type_name -> daemon.Profile
-	123, // 33: daemon.WaitExtendAuthSessionResponse.sessionExpiresAt:type_name -> google.protobuf.Timestamp
-	121, // 34: daemon.GetCloudCredentialsResponse.credentials:type_name -> daemon.GetCloudCredentialsResponse.CredentialsEntry
-	123, // 35: daemon.GetCloudCredentialsResponse.expiresAt:type_name -> google.protobuf.Timestamp
-	100, // 36: daemon.ListCloudIntegrationsResponse.integrations:type_name -> daemon.CloudIntegrationSummary
+	44,  // 23: daemon.ListStatesResponse.states:type_name -> daemon.State
+	53,  // 24: daemon.TracePacketRequest.tcp_flags:type_name -> daemon.TCPFlags
+	55,  // 25: daemon.TracePacketResponse.stages:type_name -> daemon.TraceStage
+	3,   // 26: daemon.SystemEvent.severity:type_name -> daemon.SystemEvent.Severity
+	4,   // 27: daemon.SystemEvent.category:type_name -> daemon.SystemEvent.Category
+	133, // 28: daemon.SystemEvent.timestamp:type_name -> google.protobuf.Timestamp
+	130, // 29: daemon.SystemEvent.metadata:type_name -> daemon.SystemEvent.MetadataEntry
+	58,  // 30: daemon.GetEventsResponse.events:type_name -> daemon.SystemEvent
+	132, // 31: daemon.SetConfigRequest.dnsRouteInterval:type_name -> google.protobuf.Duration
+	75,  // 32: daemon.ListProfilesResponse.profiles:type_name -> daemon.Profile
+	133, // 33: daemon.WaitExtendAuthSessionResponse.sessionExpiresAt:type_name -> google.protobuf.Timestamp
+	131, // 34: daemon.GetCloudCredentialsResponse.credentials:type_name -> daemon.GetCloudCredentialsResponse.CredentialsEntry
+	133, // 35: daemon.GetCloudCredentialsResponse.expiresAt:type_name -> google.protobuf.Timestamp
+	101, // 36: daemon.ListCloudIntegrationsResponse.integrations:type_name -> daemon.CloudIntegrationSummary
 	1,   // 37: daemon.ExposeServiceRequest.protocol:type_name -> daemon.ExposeProtocol
-	111, // 38: daemon.ExposeServiceEvent.ready:type_name -> daemon.ExposeServiceReady
-	122, // 39: daemon.StartCaptureRequest.duration:type_name -> google.protobuf.Duration
-	122, // 40: daemon.StartBundleCaptureRequest.timeout:type_name -> google.protobuf.Duration
-	30,  // 41: daemon.Network.ResolvedIPsEntry.value:type_name -> daemon.IPList
-	5,   // 42: daemon.DaemonService.Login:input_type -> daemon.LoginRequest
-	7,   // 43: daemon.DaemonService.WaitSSOLogin:input_type -> daemon.WaitSSOLoginRequest
-	9,   // 44: daemon.DaemonService.Up:input_type -> daemon.UpRequest
-	11,  // 45: daemon.DaemonService.Status:input_type -> daemon.StatusRequest
-	11,  // 46: daemon.DaemonService.SubscribeStatus:input_type -> daemon.StatusRequest
-	13,  // 47: daemon.DaemonService.Down:input_type -> daemon.DownRequest
-	15,  // 48: daemon.DaemonService.GetConfig:input_type -> daemon.GetConfigRequest
-	26,  // 49: daemon.DaemonService.ListNetworks:input_type -> daemon.ListNetworksRequest
-	28,  // 50: daemon.DaemonService.SelectNetworks:input_type -> daemon.SelectNetworksRequest
-	28,  // 51: daemon.DaemonService.DeselectNetworks:input_type -> daemon.SelectNetworksRequest
-	4,   // 52: daemon.DaemonService.ForwardingRules:input_type -> daemon.EmptyRequest
-	35,  // 53: daemon.DaemonService.DebugBundle:input_type -> daemon.DebugBundleRequest
-	37,  // 54: daemon.DaemonService.GetLogLevel:input_type -> daemon.GetLogLevelRequest
-	39,  // 55: daemon.DaemonService.SetLogLevel:input_type -> daemon.SetLogLevelRequest
-	44,  // 56: daemon.DaemonService.ListStates:input_type -> daemon.ListStatesRequest
-	46,  // 57: daemon.DaemonService.CleanState:input_type -> daemon.CleanStateRequest
-	48,  // 58: daemon.DaemonService.DeleteState:input_type -> daemon.DeleteStateRequest
-	50,  // 59: daemon.DaemonService.SetSyncResponsePersistence:input_type -> daemon.SetSyncResponsePersistenceRequest
-	53,  // 60: daemon.DaemonService.TracePacket:input_type -> daemon.TracePacketRequest
-	112, // 61: daemon.DaemonService.StartCapture:input_type -> daemon.StartCaptureRequest
-	114, // 62: daemon.DaemonService.StartBundleCapture:input_type -> daemon.StartBundleCaptureRequest
-	116, // 63: daemon.DaemonService.StopBundleCapture:input_type -> daemon.StopBundleCaptureRequest
-	56,  // 64: daemon.DaemonService.SubscribeEvents:input_type -> daemon.SubscribeRequest
-	58,  // 65: daemon.DaemonService.GetEvents:input_type -> daemon.GetEventsRequest
-	41,  // 66: daemon.DaemonService.RegisterUILog:input_type -> daemon.RegisterUILogRequest
-	60,  // 67: daemon.DaemonService.SwitchProfile:input_type -> daemon.SwitchProfileRequest
-	62,  // 68: daemon.DaemonService.SetConfig:input_type -> daemon.SetConfigRequest
-	64,  // 69: daemon.DaemonService.AddProfile:input_type -> daemon.AddProfileRequest
-	66,  // 70: daemon.DaemonService.RenameProfile:input_type -> daemon.RenameProfileRequest
-	68,  // 71: daemon.DaemonService.RemoveProfile:input_type -> daemon.RemoveProfileRequest
-	70,  // 72: daemon.DaemonService.ClaimProfile:input_type -> daemon.ClaimProfileRequest
-	72,  // 73: daemon.DaemonService.ListProfiles:input_type -> daemon.ListProfilesRequest
-	75,  // 74: daemon.DaemonService.GetActiveProfile:input_type -> daemon.GetActiveProfileRequest
-	77,  // 75: daemon.DaemonService.Logout:input_type -> daemon.LogoutRequest
-	81,  // 76: daemon.DaemonService.GetFeatures:input_type -> daemon.GetFeaturesRequest
-	84,  // 77: daemon.DaemonService.TriggerUpdate:input_type -> daemon.TriggerUpdateRequest
-	86,  // 78: daemon.DaemonService.GetPeerSSHHostKey:input_type -> daemon.GetPeerSSHHostKeyRequest
-	88,  // 79: daemon.DaemonService.RequestJWTAuth:input_type -> daemon.RequestJWTAuthRequest
-	90,  // 80: daemon.DaemonService.WaitJWTToken:input_type -> daemon.WaitJWTTokenRequest
-	92,  // 81: daemon.DaemonService.RequestExtendAuthSession:input_type -> daemon.RequestExtendAuthSessionRequest
-	94,  // 82: daemon.DaemonService.WaitExtendAuthSession:input_type -> daemon.WaitExtendAuthSessionRequest
-	96,  // 83: daemon.DaemonService.GetCloudCredentials:input_type -> daemon.GetCloudCredentialsRequest
-	98,  // 84: daemon.DaemonService.ListCloudIntegrations:input_type -> daemon.ListCloudIntegrationsRequest
-	101, // 85: daemon.DaemonService.DismissSessionWarning:input_type -> daemon.DismissSessionWarningRequest
-	103, // 86: daemon.DaemonService.StartCPUProfile:input_type -> daemon.StartCPUProfileRequest
-	105, // 87: daemon.DaemonService.StopCPUProfile:input_type -> daemon.StopCPUProfileRequest
-	107, // 88: daemon.DaemonService.GetInstallerResult:input_type -> daemon.InstallerResultRequest
-	109, // 89: daemon.DaemonService.ExposeService:input_type -> daemon.ExposeServiceRequest
-	79,  // 90: daemon.DaemonService.WailsUIReady:input_type -> daemon.WailsUIReadyRequest
-	6,   // 91: daemon.DaemonService.Login:output_type -> daemon.LoginResponse
-	8,   // 92: daemon.DaemonService.WaitSSOLogin:output_type -> daemon.WaitSSOLoginResponse
-	10,  // 93: daemon.DaemonService.Up:output_type -> daemon.UpResponse
-	12,  // 94: daemon.DaemonService.Status:output_type -> daemon.StatusResponse
-	12,  // 95: daemon.DaemonService.SubscribeStatus:output_type -> daemon.StatusResponse
-	14,  // 96: daemon.DaemonService.Down:output_type -> daemon.DownResponse
-	16,  // 97: daemon.DaemonService.GetConfig:output_type -> daemon.GetConfigResponse
-	27,  // 98: daemon.DaemonService.ListNetworks:output_type -> daemon.ListNetworksResponse
-	29,  // 99: daemon.DaemonService.SelectNetworks:output_type -> daemon.SelectNetworksResponse
-	29,  // 100: daemon.DaemonService.DeselectNetworks:output_type -> daemon.SelectNetworksResponse
-	34,  // 101: daemon.DaemonService.ForwardingRules:output_type -> daemon.ForwardingRulesResponse
-	36,  // 102: daemon.DaemonService.DebugBundle:output_type -> daemon.DebugBundleResponse
-	38,  // 103: daemon.DaemonService.GetLogLevel:output_type -> daemon.GetLogLevelResponse
-	40,  // 104: daemon.DaemonService.SetLogLevel:output_type -> daemon.SetLogLevelResponse
-	45,  // 105: daemon.DaemonService.ListStates:output_type -> daemon.ListStatesResponse
-	47,  // 106: daemon.DaemonService.CleanState:output_type -> daemon.CleanStateResponse
-	49,  // 107: daemon.DaemonService.DeleteState:output_type -> daemon.DeleteStateResponse
-	51,  // 108: daemon.DaemonService.SetSyncResponsePersistence:output_type -> daemon.SetSyncResponsePersistenceResponse
-	55,  // 109: daemon.DaemonService.TracePacket:output_type -> daemon.TracePacketResponse
-	113, // 110: daemon.DaemonService.StartCapture:output_type -> daemon.CapturePacket
-	115, // 111: daemon.DaemonService.StartBundleCapture:output_type -> daemon.StartBundleCaptureResponse
-	117, // 112: daemon.DaemonService.StopBundleCapture:output_type -> daemon.StopBundleCaptureResponse
-	57,  // 113: daemon.DaemonService.SubscribeEvents:output_type -> daemon.SystemEvent
-	59,  // 114: daemon.DaemonService.GetEvents:output_type -> daemon.GetEventsResponse
-	42,  // 115: daemon.DaemonService.RegisterUILog:output_type -> daemon.RegisterUILogResponse
-	61,  // 116: daemon.DaemonService.SwitchProfile:output_type -> daemon.SwitchProfileResponse
-	63,  // 117: daemon.DaemonService.SetConfig:output_type -> daemon.SetConfigResponse
-	65,  // 118: daemon.DaemonService.AddProfile:output_type -> daemon.AddProfileResponse
-	67,  // 119: daemon.DaemonService.RenameProfile:output_type -> daemon.RenameProfileResponse
-	69,  // 120: daemon.DaemonService.RemoveProfile:output_type -> daemon.RemoveProfileResponse
-	71,  // 121: daemon.DaemonService.ClaimProfile:output_type -> daemon.ClaimProfileResponse
-	73,  // 122: daemon.DaemonService.ListProfiles:output_type -> daemon.ListProfilesResponse
-	76,  // 123: daemon.DaemonService.GetActiveProfile:output_type -> daemon.GetActiveProfileResponse
-	78,  // 124: daemon.DaemonService.Logout:output_type -> daemon.LogoutResponse
-	82,  // 125: daemon.DaemonService.GetFeatures:output_type -> daemon.GetFeaturesResponse
-	85,  // 126: daemon.DaemonService.TriggerUpdate:output_type -> daemon.TriggerUpdateResponse
-	87,  // 127: daemon.DaemonService.GetPeerSSHHostKey:output_type -> daemon.GetPeerSSHHostKeyResponse
-	89,  // 128: daemon.DaemonService.RequestJWTAuth:output_type -> daemon.RequestJWTAuthResponse
-	91,  // 129: daemon.DaemonService.WaitJWTToken:output_type -> daemon.WaitJWTTokenResponse
-	93,  // 130: daemon.DaemonService.RequestExtendAuthSession:output_type -> daemon.RequestExtendAuthSessionResponse
-	95,  // 131: daemon.DaemonService.WaitExtendAuthSession:output_type -> daemon.WaitExtendAuthSessionResponse
-	97,  // 132: daemon.DaemonService.GetCloudCredentials:output_type -> daemon.GetCloudCredentialsResponse
-	99,  // 133: daemon.DaemonService.ListCloudIntegrations:output_type -> daemon.ListCloudIntegrationsResponse
-	102, // 134: daemon.DaemonService.DismissSessionWarning:output_type -> daemon.DismissSessionWarningResponse
-	104, // 135: daemon.DaemonService.StartCPUProfile:output_type -> daemon.StartCPUProfileResponse
-	106, // 136: daemon.DaemonService.StopCPUProfile:output_type -> daemon.StopCPUProfileResponse
-	108, // 137: daemon.DaemonService.GetInstallerResult:output_type -> daemon.InstallerResultResponse
-	110, // 138: daemon.DaemonService.ExposeService:output_type -> daemon.ExposeServiceEvent
-	80,  // 139: daemon.DaemonService.WailsUIReady:output_type -> daemon.WailsUIReadyResponse
-	91,  // [91:140] is the sub-list for method output_type
-	42,  // [42:91] is the sub-list for method input_type
-	42,  // [42:42] is the sub-list for extension type_name
-	42,  // [42:42] is the sub-list for extension extendee
-	0,   // [0:42] is the sub-list for field type_name
+	112, // 38: daemon.ExposeServiceEvent.ready:type_name -> daemon.ExposeServiceReady
+	132, // 39: daemon.StartCaptureRequest.duration:type_name -> google.protobuf.Duration
+	132, // 40: daemon.StartBundleCaptureRequest.timeout:type_name -> google.protobuf.Duration
+	2,   // 41: daemon.BirddropSendRequest.type:type_name -> daemon.BirddropPayloadType
+	2,   // 42: daemon.BirddropSendEvent.type:type_name -> daemon.BirddropPayloadType
+	2,   // 43: daemon.BirddropOffer.type:type_name -> daemon.BirddropPayloadType
+	122, // 44: daemon.BirddropListResponse.items:type_name -> daemon.BirddropOffer
+	2,   // 45: daemon.BirddropReceiveEvent.type:type_name -> daemon.BirddropPayloadType
+	31,  // 46: daemon.Network.ResolvedIPsEntry.value:type_name -> daemon.IPList
+	6,   // 47: daemon.DaemonService.Login:input_type -> daemon.LoginRequest
+	8,   // 48: daemon.DaemonService.WaitSSOLogin:input_type -> daemon.WaitSSOLoginRequest
+	10,  // 49: daemon.DaemonService.Up:input_type -> daemon.UpRequest
+	12,  // 50: daemon.DaemonService.Status:input_type -> daemon.StatusRequest
+	12,  // 51: daemon.DaemonService.SubscribeStatus:input_type -> daemon.StatusRequest
+	14,  // 52: daemon.DaemonService.Down:input_type -> daemon.DownRequest
+	119, // 53: daemon.DaemonService.BirddropSend:input_type -> daemon.BirddropSendRequest
+	121, // 54: daemon.DaemonService.BirddropList:input_type -> daemon.BirddropListRequest
+	124, // 55: daemon.DaemonService.BirddropReceive:input_type -> daemon.BirddropReceiveRequest
+	125, // 56: daemon.DaemonService.BirddropReject:input_type -> daemon.BirddropRejectRequest
+	16,  // 57: daemon.DaemonService.GetConfig:input_type -> daemon.GetConfigRequest
+	27,  // 58: daemon.DaemonService.ListNetworks:input_type -> daemon.ListNetworksRequest
+	29,  // 59: daemon.DaemonService.SelectNetworks:input_type -> daemon.SelectNetworksRequest
+	29,  // 60: daemon.DaemonService.DeselectNetworks:input_type -> daemon.SelectNetworksRequest
+	5,   // 61: daemon.DaemonService.ForwardingRules:input_type -> daemon.EmptyRequest
+	36,  // 62: daemon.DaemonService.DebugBundle:input_type -> daemon.DebugBundleRequest
+	38,  // 63: daemon.DaemonService.GetLogLevel:input_type -> daemon.GetLogLevelRequest
+	40,  // 64: daemon.DaemonService.SetLogLevel:input_type -> daemon.SetLogLevelRequest
+	45,  // 65: daemon.DaemonService.ListStates:input_type -> daemon.ListStatesRequest
+	47,  // 66: daemon.DaemonService.CleanState:input_type -> daemon.CleanStateRequest
+	49,  // 67: daemon.DaemonService.DeleteState:input_type -> daemon.DeleteStateRequest
+	51,  // 68: daemon.DaemonService.SetSyncResponsePersistence:input_type -> daemon.SetSyncResponsePersistenceRequest
+	54,  // 69: daemon.DaemonService.TracePacket:input_type -> daemon.TracePacketRequest
+	113, // 70: daemon.DaemonService.StartCapture:input_type -> daemon.StartCaptureRequest
+	115, // 71: daemon.DaemonService.StartBundleCapture:input_type -> daemon.StartBundleCaptureRequest
+	117, // 72: daemon.DaemonService.StopBundleCapture:input_type -> daemon.StopBundleCaptureRequest
+	57,  // 73: daemon.DaemonService.SubscribeEvents:input_type -> daemon.SubscribeRequest
+	59,  // 74: daemon.DaemonService.GetEvents:input_type -> daemon.GetEventsRequest
+	42,  // 75: daemon.DaemonService.RegisterUILog:input_type -> daemon.RegisterUILogRequest
+	61,  // 76: daemon.DaemonService.SwitchProfile:input_type -> daemon.SwitchProfileRequest
+	63,  // 77: daemon.DaemonService.SetConfig:input_type -> daemon.SetConfigRequest
+	65,  // 78: daemon.DaemonService.AddProfile:input_type -> daemon.AddProfileRequest
+	67,  // 79: daemon.DaemonService.RenameProfile:input_type -> daemon.RenameProfileRequest
+	69,  // 80: daemon.DaemonService.RemoveProfile:input_type -> daemon.RemoveProfileRequest
+	71,  // 81: daemon.DaemonService.ClaimProfile:input_type -> daemon.ClaimProfileRequest
+	73,  // 82: daemon.DaemonService.ListProfiles:input_type -> daemon.ListProfilesRequest
+	76,  // 83: daemon.DaemonService.GetActiveProfile:input_type -> daemon.GetActiveProfileRequest
+	78,  // 84: daemon.DaemonService.Logout:input_type -> daemon.LogoutRequest
+	82,  // 85: daemon.DaemonService.GetFeatures:input_type -> daemon.GetFeaturesRequest
+	85,  // 86: daemon.DaemonService.TriggerUpdate:input_type -> daemon.TriggerUpdateRequest
+	87,  // 87: daemon.DaemonService.GetPeerSSHHostKey:input_type -> daemon.GetPeerSSHHostKeyRequest
+	89,  // 88: daemon.DaemonService.RequestJWTAuth:input_type -> daemon.RequestJWTAuthRequest
+	91,  // 89: daemon.DaemonService.WaitJWTToken:input_type -> daemon.WaitJWTTokenRequest
+	93,  // 90: daemon.DaemonService.RequestExtendAuthSession:input_type -> daemon.RequestExtendAuthSessionRequest
+	95,  // 91: daemon.DaemonService.WaitExtendAuthSession:input_type -> daemon.WaitExtendAuthSessionRequest
+	97,  // 92: daemon.DaemonService.GetCloudCredentials:input_type -> daemon.GetCloudCredentialsRequest
+	99,  // 93: daemon.DaemonService.ListCloudIntegrations:input_type -> daemon.ListCloudIntegrationsRequest
+	102, // 94: daemon.DaemonService.DismissSessionWarning:input_type -> daemon.DismissSessionWarningRequest
+	104, // 95: daemon.DaemonService.StartCPUProfile:input_type -> daemon.StartCPUProfileRequest
+	106, // 96: daemon.DaemonService.StopCPUProfile:input_type -> daemon.StopCPUProfileRequest
+	108, // 97: daemon.DaemonService.GetInstallerResult:input_type -> daemon.InstallerResultRequest
+	110, // 98: daemon.DaemonService.ExposeService:input_type -> daemon.ExposeServiceRequest
+	80,  // 99: daemon.DaemonService.WailsUIReady:input_type -> daemon.WailsUIReadyRequest
+	7,   // 100: daemon.DaemonService.Login:output_type -> daemon.LoginResponse
+	9,   // 101: daemon.DaemonService.WaitSSOLogin:output_type -> daemon.WaitSSOLoginResponse
+	11,  // 102: daemon.DaemonService.Up:output_type -> daemon.UpResponse
+	13,  // 103: daemon.DaemonService.Status:output_type -> daemon.StatusResponse
+	13,  // 104: daemon.DaemonService.SubscribeStatus:output_type -> daemon.StatusResponse
+	15,  // 105: daemon.DaemonService.Down:output_type -> daemon.DownResponse
+	120, // 106: daemon.DaemonService.BirddropSend:output_type -> daemon.BirddropSendEvent
+	123, // 107: daemon.DaemonService.BirddropList:output_type -> daemon.BirddropListResponse
+	127, // 108: daemon.DaemonService.BirddropReceive:output_type -> daemon.BirddropReceiveEvent
+	126, // 109: daemon.DaemonService.BirddropReject:output_type -> daemon.BirddropRejectResponse
+	17,  // 110: daemon.DaemonService.GetConfig:output_type -> daemon.GetConfigResponse
+	28,  // 111: daemon.DaemonService.ListNetworks:output_type -> daemon.ListNetworksResponse
+	30,  // 112: daemon.DaemonService.SelectNetworks:output_type -> daemon.SelectNetworksResponse
+	30,  // 113: daemon.DaemonService.DeselectNetworks:output_type -> daemon.SelectNetworksResponse
+	35,  // 114: daemon.DaemonService.ForwardingRules:output_type -> daemon.ForwardingRulesResponse
+	37,  // 115: daemon.DaemonService.DebugBundle:output_type -> daemon.DebugBundleResponse
+	39,  // 116: daemon.DaemonService.GetLogLevel:output_type -> daemon.GetLogLevelResponse
+	41,  // 117: daemon.DaemonService.SetLogLevel:output_type -> daemon.SetLogLevelResponse
+	46,  // 118: daemon.DaemonService.ListStates:output_type -> daemon.ListStatesResponse
+	48,  // 119: daemon.DaemonService.CleanState:output_type -> daemon.CleanStateResponse
+	50,  // 120: daemon.DaemonService.DeleteState:output_type -> daemon.DeleteStateResponse
+	52,  // 121: daemon.DaemonService.SetSyncResponsePersistence:output_type -> daemon.SetSyncResponsePersistenceResponse
+	56,  // 122: daemon.DaemonService.TracePacket:output_type -> daemon.TracePacketResponse
+	114, // 123: daemon.DaemonService.StartCapture:output_type -> daemon.CapturePacket
+	116, // 124: daemon.DaemonService.StartBundleCapture:output_type -> daemon.StartBundleCaptureResponse
+	118, // 125: daemon.DaemonService.StopBundleCapture:output_type -> daemon.StopBundleCaptureResponse
+	58,  // 126: daemon.DaemonService.SubscribeEvents:output_type -> daemon.SystemEvent
+	60,  // 127: daemon.DaemonService.GetEvents:output_type -> daemon.GetEventsResponse
+	43,  // 128: daemon.DaemonService.RegisterUILog:output_type -> daemon.RegisterUILogResponse
+	62,  // 129: daemon.DaemonService.SwitchProfile:output_type -> daemon.SwitchProfileResponse
+	64,  // 130: daemon.DaemonService.SetConfig:output_type -> daemon.SetConfigResponse
+	66,  // 131: daemon.DaemonService.AddProfile:output_type -> daemon.AddProfileResponse
+	68,  // 132: daemon.DaemonService.RenameProfile:output_type -> daemon.RenameProfileResponse
+	70,  // 133: daemon.DaemonService.RemoveProfile:output_type -> daemon.RemoveProfileResponse
+	72,  // 134: daemon.DaemonService.ClaimProfile:output_type -> daemon.ClaimProfileResponse
+	74,  // 135: daemon.DaemonService.ListProfiles:output_type -> daemon.ListProfilesResponse
+	77,  // 136: daemon.DaemonService.GetActiveProfile:output_type -> daemon.GetActiveProfileResponse
+	79,  // 137: daemon.DaemonService.Logout:output_type -> daemon.LogoutResponse
+	83,  // 138: daemon.DaemonService.GetFeatures:output_type -> daemon.GetFeaturesResponse
+	86,  // 139: daemon.DaemonService.TriggerUpdate:output_type -> daemon.TriggerUpdateResponse
+	88,  // 140: daemon.DaemonService.GetPeerSSHHostKey:output_type -> daemon.GetPeerSSHHostKeyResponse
+	90,  // 141: daemon.DaemonService.RequestJWTAuth:output_type -> daemon.RequestJWTAuthResponse
+	92,  // 142: daemon.DaemonService.WaitJWTToken:output_type -> daemon.WaitJWTTokenResponse
+	94,  // 143: daemon.DaemonService.RequestExtendAuthSession:output_type -> daemon.RequestExtendAuthSessionResponse
+	96,  // 144: daemon.DaemonService.WaitExtendAuthSession:output_type -> daemon.WaitExtendAuthSessionResponse
+	98,  // 145: daemon.DaemonService.GetCloudCredentials:output_type -> daemon.GetCloudCredentialsResponse
+	100, // 146: daemon.DaemonService.ListCloudIntegrations:output_type -> daemon.ListCloudIntegrationsResponse
+	103, // 147: daemon.DaemonService.DismissSessionWarning:output_type -> daemon.DismissSessionWarningResponse
+	105, // 148: daemon.DaemonService.StartCPUProfile:output_type -> daemon.StartCPUProfileResponse
+	107, // 149: daemon.DaemonService.StopCPUProfile:output_type -> daemon.StopCPUProfileResponse
+	109, // 150: daemon.DaemonService.GetInstallerResult:output_type -> daemon.InstallerResultResponse
+	111, // 151: daemon.DaemonService.ExposeService:output_type -> daemon.ExposeServiceEvent
+	81,  // 152: daemon.DaemonService.WailsUIReady:output_type -> daemon.WailsUIReadyResponse
+	100, // [100:153] is the sub-list for method output_type
+	47,  // [47:100] is the sub-list for method input_type
+	47,  // [47:47] is the sub-list for extension type_name
+	47,  // [47:47] is the sub-list for extension extendee
+	0,   // [0:47] is the sub-list for field type_name
 }
 
 func init() { file_daemon_proto_init() }
@@ -8600,8 +9391,8 @@ func file_daemon_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_daemon_proto_rawDesc), len(file_daemon_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   118,
+			NumEnums:      5,
+			NumMessages:   127,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

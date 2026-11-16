@@ -66,6 +66,7 @@ type ConfigInput struct {
 	StateFilePath                 string
 	PreSharedKey                  *string
 	ServerSSHAllowed              *bool
+	AllowBirdDrop                 *bool
 	RemoteJobsAllowed             *bool
 	EnableSSHRoot                 *bool
 	EnableSSHSFTP                 *bool
@@ -130,6 +131,7 @@ type Config struct {
 	RosenpassEnabled              bool
 	RosenpassPermissive           bool
 	ServerSSHAllowed              *bool
+	AllowBirdDrop                 *bool
 	RemoteJobsAllowed             *bool
 	EnableSSHRoot                 *bool
 	EnableSSHSFTP                 *bool
@@ -332,6 +334,7 @@ func newConfigSkeleton() *Config {
 	return &Config{
 		// defaults to false only for new (post 0.26) configurations
 		ServerSSHAllowed: util.False(),
+		AllowBirdDrop:    util.False(),
 		// Remote jobs are an explicit opt-in and default off, including for
 		// legacy configs (a nil value materializes to false at connect time).
 		RemoteJobsAllowed: util.False(),
@@ -650,6 +653,13 @@ func (config *Config) apply(input ConfigInput) (updated bool, err error) {
 		}
 		config.RemoteJobsAllowed = input.RemoteJobsAllowed
 		updated = true
+	}
+
+	if input.AllowBirdDrop != nil {
+		config.AllowBirdDrop = input.AllowBirdDrop
+		updated = true
+	} else if config.AllowBirdDrop == nil {
+		config.AllowBirdDrop = util.False()
 	}
 
 	if input.EnableSSHRoot != nil && *input.EnableSSHRoot != *config.EnableSSHRoot {

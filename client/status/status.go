@@ -161,6 +161,7 @@ type OutputOverview struct {
 	LazyConnectionEnabled bool                       `json:"lazyConnectionEnabled" yaml:"lazyConnectionEnabled"`
 	ProfileName           string                     `json:"profileName" yaml:"profileName"`
 	SSHServerState        SSHServerStateOutput       `json:"sshServer" yaml:"sshServer"`
+	BirddropEnabled       bool                       `json:"birddropEnabled" yaml:"birddropEnabled"`
 	// SessionExpiresAt is the absolute UTC instant at which the peer's SSO
 	// session expires. nil when the peer is not SSO-tracked or login
 	// expiration is disabled. Pointer (rather than zero-value time.Time) so
@@ -210,6 +211,7 @@ func ConvertToStatusOutputOverview(pbFullStatus *proto.FullStatus, opts ConvertO
 		LazyConnectionEnabled: pbFullStatus.GetLazyConnectionEnabled(),
 		ProfileName:           opts.ProfileName,
 		SSHServerState:        sshServerOverview,
+		BirddropEnabled:       pbFullStatus.GetBirddropEnabled(),
 	}
 	if !opts.SessionExpiresAt.IsZero() {
 		t := opts.SessionExpiresAt
@@ -560,6 +562,11 @@ func (o *OutputOverview) GeneralSummary(showURL bool, showRelays bool, showNameS
 		}
 	}
 
+	birddropStatus := "Disabled"
+	if o.BirddropEnabled {
+		birddropStatus = "Enabled"
+	}
+
 	peersCountString := fmt.Sprintf("%d/%d Connected", o.Peers.Connected, o.Peers.Total)
 
 	var sessionExpiryString string
@@ -610,6 +617,7 @@ func (o *OutputOverview) GeneralSummary(showURL bool, showRelays bool, showNameS
 			"Quantum resistance: %s\n"+
 			"Lazy connection: %s\n"+
 			"SSH Server: %s\n"+
+			"Birddrop: %s\n"+
 			"Networks: %s\n"+
 			"%s"+
 			"Peers count: %s\n",
@@ -629,6 +637,7 @@ func (o *OutputOverview) GeneralSummary(showURL bool, showRelays bool, showNameS
 		rosenpassEnabledStatus,
 		lazyConnectionEnabledStatus,
 		sshServerStatus,
+		birddropStatus,
 		networks,
 		sessionExpiryString,
 		peersCountString,

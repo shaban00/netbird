@@ -32,6 +32,10 @@ service DaemonService {
 
   // Down stops engine work in the daemon.
   rpc Down(DownRequest) returns (DownResponse) {}
+  rpc BirddropSend(BirddropSendRequest) returns (stream BirddropSendEvent) {}
+  rpc BirddropList(BirddropListRequest) returns (BirddropListResponse) {}
+  rpc BirddropReceive(BirddropReceiveRequest) returns (stream BirddropReceiveEvent) {}
+  rpc BirddropReject(BirddropRejectRequest) returns (BirddropRejectResponse) {}
 
   // GetConfig of the daemon.
   rpc GetConfig(GetConfigRequest) returns (GetConfigResponse) {}
@@ -211,6 +215,7 @@ message LoginRequest {
   optional bool disableAutoConnect = 14;
 
   optional bool serverSSHAllowed = 15;
+  optional bool allowBirdDrop = 46;
 
   optional bool rosenpassPermissive = 16;
 
@@ -505,6 +510,9 @@ message FullStatus {
   // on it to know when to re-fetch ListNetworks via the push stream, instead
   // of polling on every status snapshot.
   uint64 networksRevision = 11;
+
+  // birddropEnabled reports whether this peer accepts inbound file offers
+  bool birddropEnabled = 12;
 }
 
 // Networks
@@ -766,6 +774,7 @@ message SetConfigRequest {
   optional bool disableAutoConnect = 9;
 
   optional bool serverSSHAllowed = 10;
+  optional bool allowBirdDrop = 41;
 
   optional bool rosenpassPermissive = 11;
 
@@ -1168,3 +1177,75 @@ message StartBundleCaptureRequest {
 message StartBundleCaptureResponse {}
 message StopBundleCaptureRequest {}
 message StopBundleCaptureResponse {}
+
+// BirddropPayloadType identifies the kind of content in a transfer.
+enum BirddropPayloadType {
+  BIRDDROP_PAYLOAD_TYPE_UNSPECIFIED = 0;
+  BIRDDROP_PAYLOAD_TYPE_FILE = 1;
+  BIRDDROP_PAYLOAD_TYPE_DIRECTORY = 2;
+  BIRDDROP_PAYLOAD_TYPE_CLIPBOARD = 3;
+}
+
+message BirddropSendRequest {
+  string peer = 1;
+  string path = 2;
+  int64 timeout_seconds = 3;
+  BirddropPayloadType type = 4;
+  string clipboard_text = 5;
+}
+
+message BirddropSendEvent {
+  string state = 1;
+  string name = 2;
+  bool is_dir = 3;
+  int64 transferred = 4;
+  int64 total = 5;
+  string peer_fqdn = 6;
+  string peer_ip = 7;
+  string message = 8;
+  BirddropPayloadType type = 9;
+}
+
+message BirddropListRequest {}
+
+message BirddropOffer {
+  string id = 1;
+  string name = 2;
+  string from = 3;
+  int64 size = 4;
+  bool is_dir = 5;
+  int64 received_unix = 7;
+  BirddropPayloadType type = 8;
+}
+
+message BirddropListResponse {
+  repeated BirddropOffer items = 1;
+}
+
+message BirddropReceiveRequest {
+  repeated string ids = 1;
+  string dest = 2;
+}
+
+message BirddropRejectRequest {
+  repeated string ids = 1;
+}
+
+message BirddropRejectResponse {
+  int32 rejected = 1;
+}
+
+message BirddropReceiveEvent {
+  string state = 1;
+  string id = 2;
+  string name = 3;
+  int64 transferred = 4;
+  int64 total = 5;
+  string saved_as = 6;
+  int64 bytes = 7;
+  bool is_dir = 8;
+  string message = 9;
+  int32 files = 10;
+  BirddropPayloadType type = 11;
+  string clipboard_text = 12;
+}

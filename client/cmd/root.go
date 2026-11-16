@@ -28,6 +28,7 @@ import (
 	daddr "github.com/netbirdio/netbird/client/internal/daemonaddr"
 	"github.com/netbirdio/netbird/client/internal/localmetrics"
 	"github.com/netbirdio/netbird/client/internal/profilemanager"
+	"github.com/netbirdio/netbird/version"
 )
 
 const (
@@ -49,6 +50,18 @@ const (
 	enableLazyConnectionFlag = "enable-lazy-connection"
 	mtuFlag                  = "mtu"
 )
+
+func netbirdBanner() string {
+	return fmt.Sprintf(`
+ ███╗   ██╗███████╗████████╗██████╗ ██╗██████╗ ██████╗
+ ████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██║██╔══██╗██╔══██╗
+ ██╔██╗ ██║█████╗     ██║   ██████╔╝██║██████╔╝██║  ██║
+ ██║╚██╗██║██╔══╝     ██║   ██╔══██╗██║██╔══██╗██║  ██║
+ ██║ ╚████║███████╗   ██║   ██████╔╝██║██║  ██║██████╔╝
+ ╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═════╝ ╚═╝╚═╝  ╚═╝╚═════╝
+                    NetBird CLI (%s)
+`, version.NetbirdVersion())
+}
 
 var (
 	defaultConfigPathDir    string
@@ -93,7 +106,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:          "netbird",
 		Short:        "",
-		Long:         "",
+		Long:         netbirdBanner(),
 		SilenceUsage: true,
 		// Execute prints the error instead, so a refusal the daemon already
 		// explained is not reprinted inside a gRPC envelope.
@@ -188,6 +201,7 @@ func init() {
 	rootCmd.AddCommand(postureCmd)
 
 	postureCmd.AddCommand(postureCertProofCmd)
+	rootCmd.AddCommand(dropCmd)
 
 	networksCMD.AddCommand(routesListCmd)
 	networksCMD.AddCommand(routesSelectCmd, routesDeselectCmd)

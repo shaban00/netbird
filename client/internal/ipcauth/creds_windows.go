@@ -85,42 +85,80 @@ func RestrictedPipeSDDL(sids []string) string {
 // NewTransportCredentials returns gRPC transport credentials that derive the
 // caller's identity from the named-pipe client token.
 //
-// The client must connect at SECURITY_IDENTIFICATION for the daemon to be able
-// to read its token, which is what DialNamedPipe does.
+// The client connects at SECURITY_IDENTIFICATION. That allows the daemon to
+// inspect the caller's token and perform access checks without granting it the
+// ability to impersonate the caller.
 func NewTransportCredentials() credentials.TransportCredentials {
 	return winpipeCreds{}
 }
 
 // ConnIdentity extracts the caller's identity from an accepted named-pipe
 // connection by impersonating the pipe client and reading its token. It is
-// shared by the gRPC transport credentials and by the JSON gateway, which
-// reads the identity of its own HTTP clients.
+// shared by the JSON gateway, which only needs the identity.
 func ConnIdentity(conn net.Conn) (Identity, error) {
-	// go-winio's pipe connection embeds *win32File, which exposes Fd().
 	fdConn, ok := conn.(interface{ Fd() uintptr })
 	if !ok {
 		return Identity{}, fmt.Errorf("connection %T does not expose a pipe handle", conn)
 	}
+
 	return pipeClientIdentity(windows.Handle(fdConn.Fd()))
 }
 
 type winpipeCreds struct{}
 
+type tokenConn struct {
+	net.Conn
+	tok *callerToken
+}
+
+// Close closes the connection and then the retained token. release waits for
+// any access check still using the token and is safe to call more than once.
+func (c *tokenConn) Close() error {
+	connErr := c.Conn.Close()
+	tokenErr := c.tok.release(func(h uintptr) error { return windows.Token(h).Close() })
+
+	if connErr != nil {
+		return connErr
+	}
+	if tokenErr != nil {
+		return fmt.Errorf("close client token: %w", tokenErr)
+	}
+
+	return nil
+}
+
+func connIdentityAndToken(conn net.Conn) (Identity, windows.Token, error) {
+	fdConn, ok := conn.(interface{ Fd() uintptr })
+	if !ok {
+		return Identity{}, 0, fmt.Errorf("connection %T does not expose a pipe handle", conn)
+	}
+
+	return pipeClientIdentityAndToken(windows.Handle(fdConn.Fd()))
+}
+
 func (winpipeCreds) ClientHandshake(_ context.Context, _ string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	return conn, AuthInfo{}, nil
 }
 
-// ServerHandshake extracts the connecting client's identity and fails closed
-// when the handle or token cannot be read, so a connection whose caller is
-// unknown never reaches a handler.
+// ServerHandshake extracts the connecting client's identity and retains an
+// identification-level token for local access checks. The token is closed when
+// the authenticated connection is closed.
 func (winpipeCreds) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
-	id, err := ConnIdentity(conn)
+	id, token, err := connIdentityAndToken(conn)
 	if err != nil {
 		return nil, nil, err
 	}
-	return conn, AuthInfo{
+
+	tok := newCallerToken(uintptr(token))
+	authConn := &tokenConn{
+		Conn: conn,
+		tok:  tok,
+	}
+
+	return authConn, AuthInfo{
 		CommonAuthInfo: credentials.CommonAuthInfo{SecurityLevel: credentials.NoSecurity},
 		Identity:       id,
+		token:          tok,
 	}, nil
 }
 
@@ -132,19 +170,29 @@ func (winpipeCreds) Clone() credentials.TransportCredentials { return winpipeCre
 
 func (winpipeCreds) OverrideServerName(string) error { return nil }
 
-// pipeClientIdentity reads the connecting client's user SID, usable group
-// SIDs, and elevation state by impersonating the pipe client on this thread
-// and reading the resulting impersonation token.
-func pipeClientIdentity(handle windows.Handle) (id Identity, err error) {
-	// Impersonation is per-thread, so the goroutine must stay on this thread
-	// until RevertToSelf, otherwise an unrelated goroutine could inherit the
-	// impersonated context.
+// pipeClientIdentity reads the connecting client's identity and closes the
+// temporary duplicate token immediately.
+func pipeClientIdentity(handle windows.Handle) (Identity, error) {
+	id, token, err := pipeClientIdentityAndToken(handle)
+	if err != nil {
+		return Identity{}, err
+	}
+
+	if err := token.Close(); err != nil {
+		log.Debugf("close client token: %v", err)
+	}
+
+	return id, nil
+}
+
+// pipeClientIdentityAndToken reads the client's identity and retains a duplicate
+// of its token at SECURITY_IDENTIFICATION level.
+//
+// The duplicate deliberately does not request TOKEN_IMPERSONATE and does not
+// raise the impersonation level. It is only retained for Windows access checks.
+func pipeClientIdentityAndToken(handle windows.Handle) (id Identity, callerToken windows.Token, err error) {
 	runtime.LockOSThread()
 
-	// The thread only goes back to the runtime's pool once it is provably no
-	// longer impersonating the client. If the revert fails, leaving it locked
-	// makes Go terminate it when this goroutine exits, which costs one thread
-	// and keeps a thread running as the client from ever being reused.
 	clean := false
 	defer func() {
 		if clean {
@@ -154,27 +202,33 @@ func pipeClientIdentity(handle windows.Handle) (id Identity, err error) {
 
 	if err = impersonateNamedPipeClient(handle); err != nil {
 		clean = true
-		return Identity{}, fmt.Errorf("impersonate named pipe client: %w", err)
+		return Identity{}, 0, fmt.Errorf("impersonate named pipe client: %w", err)
 	}
+
 	defer func() {
-		// Surface the revert failure only when nothing else failed: leaving
-		// the thread impersonated is worse than the original error.
 		revErr := windows.RevertToSelf()
 		if revErr != nil {
 			if err == nil {
 				err = fmt.Errorf("revert impersonation: %w", revErr)
+			}
+
+			if callerToken != 0 {
+				_ = callerToken.Close()
+				callerToken = 0
 			}
 			return
 		}
 		clean = true
 	}()
 
-	// openAsSelf=true opens the token with the daemon's own process context
-	// rather than the impersonated client's, so the open cannot fail because
-	// the client lacks access to its own token.
 	var token windows.Token
-	if err = windows.OpenThreadToken(windows.CurrentThread(), windows.TOKEN_QUERY, true, &token); err != nil {
-		return Identity{}, fmt.Errorf("open thread token: %w", err)
+	if err = windows.OpenThreadToken(
+		windows.CurrentThread(),
+		windows.TOKEN_QUERY|windows.TOKEN_DUPLICATE,
+		true,
+		&token,
+	); err != nil {
+		return Identity{}, 0, fmt.Errorf("open thread token: %w", err)
 	}
 	defer func() {
 		if cerr := token.Close(); cerr != nil {
@@ -182,7 +236,24 @@ func pipeClientIdentity(handle windows.Handle) (id Identity, err error) {
 		}
 	}()
 
-	return identityFromToken(token)
+	id, err = identityFromToken(token)
+	if err != nil {
+		return Identity{}, 0, err
+	}
+
+	err = windows.DuplicateTokenEx(
+		token,
+		windows.TOKEN_QUERY,
+		nil,
+		windows.SecurityIdentification,
+		windows.TokenImpersonation,
+		&callerToken,
+	)
+	if err != nil {
+		return Identity{}, 0, fmt.Errorf("duplicate client token: %w", err)
+	}
+
+	return id, callerToken, nil
 }
 
 // identityFromToken reads the user SID, usable group SIDs and elevation state

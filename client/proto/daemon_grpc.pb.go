@@ -25,6 +25,10 @@ const (
 	DaemonService_Status_FullMethodName                     = "/daemon.DaemonService/Status"
 	DaemonService_SubscribeStatus_FullMethodName            = "/daemon.DaemonService/SubscribeStatus"
 	DaemonService_Down_FullMethodName                       = "/daemon.DaemonService/Down"
+	DaemonService_BirddropSend_FullMethodName               = "/daemon.DaemonService/BirddropSend"
+	DaemonService_BirddropList_FullMethodName               = "/daemon.DaemonService/BirddropList"
+	DaemonService_BirddropReceive_FullMethodName            = "/daemon.DaemonService/BirddropReceive"
+	DaemonService_BirddropReject_FullMethodName             = "/daemon.DaemonService/BirddropReject"
 	DaemonService_GetConfig_FullMethodName                  = "/daemon.DaemonService/GetConfig"
 	DaemonService_ListNetworks_FullMethodName               = "/daemon.DaemonService/ListNetworks"
 	DaemonService_SelectNetworks_FullMethodName             = "/daemon.DaemonService/SelectNetworks"
@@ -90,6 +94,10 @@ type DaemonServiceClient interface {
 	SubscribeStatus(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StatusResponse], error)
 	// Down stops engine work in the daemon.
 	Down(ctx context.Context, in *DownRequest, opts ...grpc.CallOption) (*DownResponse, error)
+	BirddropSend(ctx context.Context, in *BirddropSendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BirddropSendEvent], error)
+	BirddropList(ctx context.Context, in *BirddropListRequest, opts ...grpc.CallOption) (*BirddropListResponse, error)
+	BirddropReceive(ctx context.Context, in *BirddropReceiveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BirddropReceiveEvent], error)
+	BirddropReject(ctx context.Context, in *BirddropRejectRequest, opts ...grpc.CallOption) (*BirddropRejectResponse, error)
 	// GetConfig of the daemon.
 	GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (*GetConfigResponse, error)
 	// List available networks
@@ -261,6 +269,64 @@ func (c *daemonServiceClient) Down(ctx context.Context, in *DownRequest, opts ..
 	return out, nil
 }
 
+func (c *daemonServiceClient) BirddropSend(ctx context.Context, in *BirddropSendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BirddropSendEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[1], DaemonService_BirddropSend_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[BirddropSendRequest, BirddropSendEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DaemonService_BirddropSendClient = grpc.ServerStreamingClient[BirddropSendEvent]
+
+func (c *daemonServiceClient) BirddropList(ctx context.Context, in *BirddropListRequest, opts ...grpc.CallOption) (*BirddropListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BirddropListResponse)
+	err := c.cc.Invoke(ctx, DaemonService_BirddropList_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonServiceClient) BirddropReceive(ctx context.Context, in *BirddropReceiveRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BirddropReceiveEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[2], DaemonService_BirddropReceive_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[BirddropReceiveRequest, BirddropReceiveEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DaemonService_BirddropReceiveClient = grpc.ServerStreamingClient[BirddropReceiveEvent]
+
+func (c *daemonServiceClient) BirddropReject(ctx context.Context, in *BirddropRejectRequest, opts ...grpc.CallOption) (*BirddropRejectResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BirddropRejectResponse)
+	err := c.cc.Invoke(ctx, DaemonService_BirddropReject_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *daemonServiceClient) GetConfig(ctx context.Context, in *GetConfigRequest, opts ...grpc.CallOption) (*GetConfigResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetConfigResponse)
@@ -394,7 +460,7 @@ func (c *daemonServiceClient) TracePacket(ctx context.Context, in *TracePacketRe
 
 func (c *daemonServiceClient) StartCapture(ctx context.Context, in *StartCaptureRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CapturePacket], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[1], DaemonService_StartCapture_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[3], DaemonService_StartCapture_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +499,7 @@ func (c *daemonServiceClient) StopBundleCapture(ctx context.Context, in *StopBun
 
 func (c *daemonServiceClient) SubscribeEvents(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SystemEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[2], DaemonService_SubscribeEvents_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[4], DaemonService_SubscribeEvents_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +758,7 @@ func (c *daemonServiceClient) GetInstallerResult(ctx context.Context, in *Instal
 
 func (c *daemonServiceClient) ExposeService(ctx context.Context, in *ExposeServiceRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExposeServiceEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[3], DaemonService_ExposeService_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &DaemonService_ServiceDesc.Streams[5], DaemonService_ExposeService_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -739,6 +805,10 @@ type DaemonServiceServer interface {
 	SubscribeStatus(*StatusRequest, grpc.ServerStreamingServer[StatusResponse]) error
 	// Down stops engine work in the daemon.
 	Down(context.Context, *DownRequest) (*DownResponse, error)
+	BirddropSend(*BirddropSendRequest, grpc.ServerStreamingServer[BirddropSendEvent]) error
+	BirddropList(context.Context, *BirddropListRequest) (*BirddropListResponse, error)
+	BirddropReceive(*BirddropReceiveRequest, grpc.ServerStreamingServer[BirddropReceiveEvent]) error
+	BirddropReject(context.Context, *BirddropRejectRequest) (*BirddropRejectResponse, error)
 	// GetConfig of the daemon.
 	GetConfig(context.Context, *GetConfigRequest) (*GetConfigResponse, error)
 	// List available networks
@@ -858,6 +928,18 @@ func (UnimplementedDaemonServiceServer) SubscribeStatus(*StatusRequest, grpc.Ser
 }
 func (UnimplementedDaemonServiceServer) Down(context.Context, *DownRequest) (*DownResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Down not implemented")
+}
+func (UnimplementedDaemonServiceServer) BirddropSend(*BirddropSendRequest, grpc.ServerStreamingServer[BirddropSendEvent]) error {
+	return status.Error(codes.Unimplemented, "method BirddropSend not implemented")
+}
+func (UnimplementedDaemonServiceServer) BirddropList(context.Context, *BirddropListRequest) (*BirddropListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BirddropList not implemented")
+}
+func (UnimplementedDaemonServiceServer) BirddropReceive(*BirddropReceiveRequest, grpc.ServerStreamingServer[BirddropReceiveEvent]) error {
+	return status.Error(codes.Unimplemented, "method BirddropReceive not implemented")
+}
+func (UnimplementedDaemonServiceServer) BirddropReject(context.Context, *BirddropRejectRequest) (*BirddropRejectResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BirddropReject not implemented")
 }
 func (UnimplementedDaemonServiceServer) GetConfig(context.Context, *GetConfigRequest) (*GetConfigResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetConfig not implemented")
@@ -1106,6 +1188,64 @@ func _DaemonService_Down_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DaemonServiceServer).Down(ctx, req.(*DownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DaemonService_BirddropSend_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(BirddropSendRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServiceServer).BirddropSend(m, &grpc.GenericServerStream[BirddropSendRequest, BirddropSendEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DaemonService_BirddropSendServer = grpc.ServerStreamingServer[BirddropSendEvent]
+
+func _DaemonService_BirddropList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BirddropListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServiceServer).BirddropList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DaemonService_BirddropList_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServiceServer).BirddropList(ctx, req.(*BirddropListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DaemonService_BirddropReceive_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(BirddropReceiveRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DaemonServiceServer).BirddropReceive(m, &grpc.GenericServerStream[BirddropReceiveRequest, BirddropReceiveEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type DaemonService_BirddropReceiveServer = grpc.ServerStreamingServer[BirddropReceiveEvent]
+
+func _DaemonService_BirddropReject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BirddropRejectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServiceServer).BirddropReject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DaemonService_BirddropReject_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServiceServer).BirddropReject(ctx, req.(*BirddropRejectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1891,6 +2031,14 @@ var DaemonService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DaemonService_Down_Handler,
 		},
 		{
+			MethodName: "BirddropList",
+			Handler:    _DaemonService_BirddropList_Handler,
+		},
+		{
+			MethodName: "BirddropReject",
+			Handler:    _DaemonService_BirddropReject_Handler,
+		},
+		{
 			MethodName: "GetConfig",
 			Handler:    _DaemonService_GetConfig_Handler,
 		},
@@ -2055,6 +2203,16 @@ var DaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "SubscribeStatus",
 			Handler:       _DaemonService_SubscribeStatus_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "BirddropSend",
+			Handler:       _DaemonService_BirddropSend_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "BirddropReceive",
+			Handler:       _DaemonService_BirddropReceive_Handler,
 			ServerStreams: true,
 		},
 		{

@@ -193,6 +193,14 @@ func authenticForward(ctx context.Context) bool {
 	return subtle.ConstantTimeCompare([]byte(got), []byte(forwardProof)) == 1
 }
 
+// IsForwarded reports whether a request came through the JSON gateway, or
+// carries gateway forwarding keys at all. Operations that check files against
+// the caller's own credentials must refuse such requests: the transport peer
+// is the daemon itself, and no credentials of the real caller are available.
+func IsForwarded(ctx context.Context) bool {
+	return isForwarded(ctx) || duplicatedForwardKey(ctx)
+}
+
 // isForwarded reports whether the request carries the JSON gateway marker.
 func isForwarded(ctx context.Context) bool {
 	md, ok := metadata.FromIncomingContext(ctx)

@@ -174,6 +174,11 @@ func (i Identity) String() string {
 type AuthInfo struct {
 	credentials.CommonAuthInfo
 	Identity Identity
+
+	// token is the authenticated Windows caller token retained for local
+	// authorization checks. It remains at SECURITY_IDENTIFICATION level and
+	// must never be serialized or forwarded. Nil on other platforms.
+	token *callerToken
 }
 
 // AuthType identifies the authentication scheme.
