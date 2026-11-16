@@ -127,6 +127,10 @@ jobs:
       - name: Install proxy web dependencies for license collection
         working-directory: proxy/web
         run: npm ci --ignore-scripts
+      - name: Build the recorder web UI
+        # recorder/web/web.go embeds recorder/web/out, which is not committed.
+        working-directory: recorder/web
+        run: npm ci && npm run build
       - name: Set up QEMU
         uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 #v4.1.0
       - name: Set up Docker Buildx
