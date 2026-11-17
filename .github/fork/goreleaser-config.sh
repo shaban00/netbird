@@ -83,6 +83,7 @@ yq '
     "Client (Linux and macOS):\n\n" +
     "```sh\ncurl -fsSL " + $dl + "/install-client.sh | sh\n```\n\n" +
     "Or download a package below: `.deb`, `.rpm`, Arch Linux `.pkg.tar.zst`, or an archive.\n\n" +
+    "Desktop app (`netbird-ui-*`): Linux packages and archives (GTK4, or `netbird-ui-gtk3` for distros without WebKitGTK 6.0), Windows and macOS archives. They are not code-signed, so Windows SmartScreen and macOS Gatekeeper ask before running them.\n\n" +
     "Self-hosted server (Docker; asks about PostgreSQL, the reverse proxy and CrowdSec):\n\n" +
     "```sh\ncurl -fsSL " + $dl + "/install-server.sh | bash\n```\n\n" +
     "Standalone services (Docker), each on its own host:\n\n" +

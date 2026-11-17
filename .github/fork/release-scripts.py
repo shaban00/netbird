@@ -74,10 +74,13 @@ def install_client_sh(owner: str) -> str:
             "# Fork releases are installed from their binaries.\n"
             "USE_BIN_INSTALL=true\n",
         ),
-        # Fork releases do not include the desktop UI.
+        # The desktop app installs on Linux as upstream's does. On macOS this
+        # installer only takes the app from NetBird's signed .zip, which fork
+        # releases do not have (they have an unsigned archive), so skip it.
         (
-            'if [ -z "$SKIP_UI_APP" ]; then\n    SKIP_UI_APP=false',
-            'if [ -z "$SKIP_UI_APP" ]; then\n    SKIP_UI_APP=true # fork releases do not include the desktop UI',
+            '\t\t\tOS_TYPE="darwin"\n',
+            '\t\t\tOS_TYPE="darwin"\n'
+            '            SKIP_UI_APP=true # fork releases have no signed macOS app\n',
         ),
         (
             "set -e\n",
