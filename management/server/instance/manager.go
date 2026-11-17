@@ -22,11 +22,14 @@ import (
 	"github.com/netbirdio/netbird/version"
 )
 
-const (
-	// Version endpoints
+// Version endpoints. Variables so that a build can point them elsewhere with
+// -ldflags -X (a fork that publishes its own releases).
+var (
 	managementVersionURL = "https://pkgs.netbird.io/releases/latest/version"
 	dashboardReleasesURL = "https://api.github.com/repos/netbirdio/dashboard/releases/latest"
+)
 
+const (
 	// Cache TTL for version information
 	versionCacheTTL = 60 * time.Minute
 

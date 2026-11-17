@@ -18,6 +18,8 @@
 #     the fork's install-*.sh scripts in $FORK_RELEASE_FILES (written by
 #     release-scripts.py)
 #   - the release notes start with how to install this release
+#   - binaries check this fork's releases for updates, not NetBird's (see
+#     fork-ldflags.sh), and each release carries the version file they read
 #   - an Arch Linux package (.pkg.tar.zst) is built from the same binaries as
 #     upstream's .deb, with pacman hooks from .github/fork/archlinux. Its
 #     version is <upstream version>-<N> for tag v<upstream version>-spydasec.N:
@@ -32,7 +34,7 @@ out=${2:-.goreleaser.fork.yaml}
 : "${DOCKERHUB_NAMESPACE:?set DOCKERHUB_NAMESPACE, e.g. spydasec}"
 : "${GHCR_NAMESPACE:?set GHCR_NAMESPACE, e.g. spydasec}"
 : "${FORK_RELEASE_FILES:?set FORK_RELEASE_FILES to the directory release-scripts.py wrote}"
-for f in install-client.sh install-server.sh install-relay.sh install-signal.sh install-recorder.sh; do
+for f in install-client.sh install-server.sh install-relay.sh install-signal.sh install-recorder.sh version; do
   [[ -f "$FORK_RELEASE_FILES/$f" ]] || { echo "error: $FORK_RELEASE_FILES/$f is missing" >&2; exit 1; }
 done
 GITHUB_OWNER=${GITHUB_OWNER:-$GHCR_NAMESPACE}
@@ -44,7 +46,8 @@ ARCH_PKGREL=1
 if [[ "${RELEASE_TAG:-}" =~ -spydasec\.([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
   ARCH_PKGREL=$(( 10#${BASH_REMATCH[1]} ))
 fi
-export DOCKERHUB_NAMESPACE GHCR_NAMESPACE ARCH_PACKAGER ARCH_PKGREL FORK_RELEASE_FILES GITHUB_OWNER
+FORK_LDFLAGS=$(bash "$(dirname "$0")/fork-ldflags.sh" "$GITHUB_OWNER")
+export DOCKERHUB_NAMESPACE GHCR_NAMESPACE ARCH_PACKAGER ARCH_PKGREL FORK_RELEASE_FILES GITHUB_OWNER FORK_LDFLAGS
 
 # The Arch Linux package is derived from upstream's .deb definition.
 if [[ "$(yq '[.nfpms[] | select(.id == "netbird_deb")] | length' "$in")" != "1" ]]; then
@@ -56,6 +59,7 @@ yq '
   ("https://github.com/" + strenv(GITHUB_OWNER) + "/netbird/releases/latest/download") as $dl |
   del(.brews) |
   del(.uploads) |
+  (.builds[].ldflags[]? | select(contains("netbird/version.version="))) |= . + " " + strenv(FORK_LDFLAGS) |
   .dockers_v2[].images |= map(
     sub("^ghcr\.io/netbirdio/"; "ghcr.io/" + strenv(GHCR_NAMESPACE) + "/") |
     sub("^netbirdio/"; strenv(DOCKERHUB_NAMESPACE) + "/") |
@@ -77,8 +81,8 @@ yq '
       }
     }
   ] |
-  .release.extra_files = [{"glob": strenv(FORK_RELEASE_FILES) + "/*.sh"}] |
-  .checksum.extra_files = [{"glob": strenv(FORK_RELEASE_FILES) + "/*.sh"}] |
+  .release.extra_files = [{"glob": strenv(FORK_RELEASE_FILES) + "/*.sh"}, {"glob": strenv(FORK_RELEASE_FILES) + "/version"}] |
+  .checksum.extra_files = [{"glob": strenv(FORK_RELEASE_FILES) + "/*.sh"}, {"glob": strenv(FORK_RELEASE_FILES) + "/version"}] |
   .release.header = "## Install\n\n" +
     "Client (Linux and macOS):\n\n" +
     "```sh\ncurl -fsSL " + $dl + "/install-client.sh | sh\n```\n\n" +

@@ -15,6 +15,7 @@
 #   - fork tags (vX.Y.Z-<suffix>.N) are full releases, not prereleases, and
 #     GitHub's "Latest release" follows SKIP_LATEST, as in the main config
 #     (upstream leaves both to its signing pipeline)
+#   - the app checks this fork's releases for updates (see fork-ldflags.sh)
 #   - the Linux packages (GTK4 netbird-ui and GTK3 netbird-ui-gtk3) get an
 #     Arch Linux package (.pkg.tar.zst) next to the .deb, versioned like the
 #     CLI's: <upstream version>-<N> for tag v<upstream version>-spydasec.N.
@@ -33,11 +34,13 @@ ARCH_PKGREL=1
 if [[ "${RELEASE_TAG:-}" =~ -spydasec\.([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
   ARCH_PKGREL=$(( 10#${BASH_REMATCH[1]} ))
 fi
-export ARCH_PACKAGER ARCH_PKGREL
+FORK_LDFLAGS=$(bash "$(dirname "$0")/fork-ldflags.sh" "${GITHUB_OWNER:-${GHCR_NAMESPACE:-spydasec}}")
+export ARCH_PACKAGER ARCH_PKGREL FORK_LDFLAGS
 
 yq '
   del(.uploads) |
   del(.brews) |
+  (.builds[].ldflags[]? | select(contains("netbird/version.version="))) |= . + " " + strenv(FORK_LDFLAGS) |
   .nfpms += [
     .nfpms[]? |
     select((.formats | contains(["deb"])) and (.package_name == "netbird-ui" or .package_name == "netbird-ui-gtk3")) |

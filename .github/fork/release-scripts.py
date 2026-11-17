@@ -24,6 +24,11 @@ Each edit to upstream's install.sh must match exactly once. If upstream
 changes the script so that an edit no longer applies, this fails instead of
 publishing a half-converted script.
 
+It also writes OUT_DIR/version, the release's version without the v
+(0.83.1-spydasec.1). Attached to every release, it is served at
+releases/latest/download/version, which the fork's binaries check for updates
+in place of https://pkgs.netbird.io/releases/latest/version.
+
 Usage: release-scripts.py OUT_DIR
 Environment: GITHUB_OWNER (owner of the fork's repository),
              DOCKERHUB_NAMESPACE (Docker Hub namespace of the fork's images),
@@ -183,6 +188,8 @@ def main() -> None:
         path.write_text(text)
         path.chmod(0o755)
         print(f"wrote {path}")
+    (out / "version").write_text(tag[1:] + "\n")
+    print(f"wrote {out / 'version'}")
 
 
 if __name__ == "__main__":

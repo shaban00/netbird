@@ -12,6 +12,11 @@
 #   MCP            an endpoint at https://<domain>/api/mcp for AI assistants,
 #                  read-only by default
 #
+# Cloud federation is enabled without asking: the server is an OIDC issuer at
+# https://<domain>/federation, so peers can get short-lived AWS, GCP and Azure
+# credentials (Cloud Access in the dashboard). Set
+# NETBIRD_ENABLE_CLOUD_FEDERATION=false to leave it off.
+#
 # Interactive:
 #
 #   curl -fsSL https://github.com/@@GITHUB_OWNER@@/netbird/releases/latest/download/install-server.sh | bash
@@ -204,6 +209,13 @@ configure() {
     die "Country filtering requires CrowdSec (NETBIRD_ENABLE_CROWDSEC=true)."
   fi
 
+  # Not asked: on unless NETBIRD_ENABLE_CLOUD_FEDERATION says otherwise.
+  case "${NETBIRD_ENABLE_CLOUD_FEDERATION:-true}" in
+    y | yes | true | 1) ENABLE_CLOUD_FEDERATION=true ;;
+    n | no | false | 0) ENABLE_CLOUD_FEDERATION=false ;;
+    *) die "NETBIRD_ENABLE_CLOUD_FEDERATION must be true or false, got: ${NETBIRD_ENABLE_CLOUD_FEDERATION}" ;;
+  esac
+
   ENABLE_MCP="$(read_yes_no NETBIRD_ENABLE_MCP \
     "Enable the MCP endpoint for AI assistants at https://${DOMAIN}/api/mcp?" false)"
   MCP_TOOLS=""
@@ -347,6 +359,13 @@ server:
     trustedHTTPProxies:
       - "${CADDY_IP}/32"
 
+  # OIDC issuer for cloud federation (Cloud Access): AWS, GCP and Azure trust
+  # this issuer and exchange its tokens for short-lived credentials. The
+  # issuer must end in /federation, where Caddy forwards to the server.
+  cloudFederation:
+    enabled: ${ENABLE_CLOUD_FEDERATION}
+    issuer: "https://${DOMAIN}/federation"
+
   # Keep the encryption key safe: without it the stored data cannot be read.
 ${store}
 EOF
@@ -450,6 +469,10 @@ NB_PROXY_FORWARDED_PROTO=https
 # Caddy passes connections through with the PROXY protocol; trust only Caddy.
 NB_PROXY_PROXY_PROTOCOL=true
 NB_PROXY_TRUSTED_PROXIES=${CADDY_IP}
+# Private services (NetBird-Only authentication): reachable only from NetBird
+# peers, on :80 and :443 inside each account's WireGuard tunnel. Public
+# services are unaffected.
+NB_PROXY_PRIVATE=true
 EOF
   if [[ "$ENABLE_CROWDSEC" == "true" ]]; then
     cat <<EOF
@@ -940,6 +963,15 @@ EOF
 MCP: https://${DOMAIN}/api/mcp (${MCP_TOOLS_LABEL}). Add it to an MCP
 client as a remote (streamable HTTP) server; it signs in through the dashboard
 login. Change the tools in server.env, then: $DOCKER_COMPOSE up -d server
+EOF
+  fi
+  cat <<EOF
+EOF
+  if [[ "$ENABLE_CLOUD_FEDERATION" == "true" ]]; then
+    cat <<EOF
+
+Cloud federation: issuer https://${DOMAIN}/federation (cloudFederation in
+config.yaml). Set up AWS, GCP or Azure under Cloud Access in the dashboard.
 EOF
   fi
   cat <<EOF
