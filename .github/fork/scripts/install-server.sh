@@ -9,6 +9,8 @@
 #   Reverse proxy  publishes services on *.<domain>; needs a wildcard DNS record
 #   CrowdSec       blocks malicious IPs at Caddy and the reverse proxy, and can
 #                  restrict the dashboard to (or block) countries
+#   MCP            an endpoint at https://<domain>/api/mcp for AI assistants,
+#                  read-only by default
 #
 # Interactive:
 #
@@ -18,11 +20,12 @@
 #
 #   curl -fsSL https://github.com/@@GITHUB_OWNER@@/netbird/releases/latest/download/install-server.sh | \
 #     NETBIRD_DOMAIN=netbird.example.com \
-#     NETBIRD_LETSENCRYPT_EMAIL=admin@example.com \
 #     NETBIRD_ENABLE_POSTGRES=true \
 #     NETBIRD_ENABLE_PROXY=true \
 #     NETBIRD_ENABLE_CROWDSEC=true \
 #     NETBIRD_ALLOWED_COUNTRIES=US,CA \
+#     NETBIRD_ENABLE_MCP=true \
+#     NETBIRD_MCP_TOOLS=read-only \
 #     bash
 #
 # Browser client: the dashboard's browser SSH and RDP run the NetBird client
@@ -34,10 +37,19 @@
 # dashboard) or NETBIRD_BLOCKED_COUNTRIES (these may not), as comma-separated
 # ISO 3166 codes. It applies to the dashboard only; peers, the API, Signal and
 # relays stay reachable from everywhere.
+#
+# MCP tools: NETBIRD_MCP_TOOLS is read-only (the list_* and get_* tools), all
+# (every tool, including create, update and delete), or a comma-separated
+# list such as list_peers,get_peer.
+#
+# Server settings read from the environment (MCP, API rate limiting, activity
+# log and others) are in server.env; config.yaml holds the rest.
 
 set -euo pipefail
 
 IMAGE_TAG="@@IMAGE_TAG@@"
+# The MCP tools that only read, from this release's catalog.
+MCP_READ_TOOLS="@@MCP_READ_TOOLS@@"
 NAMESPACE="@@DOCKERHUB_NAMESPACE@@"
 RELEASE_URL="https://github.com/@@GITHUB_OWNER@@/netbird/releases/download/v${IMAGE_TAG}"
 SERVER_IMAGE="${SERVER_IMAGE:-${NAMESPACE}/netbird-server:${IMAGE_TAG}}"
@@ -168,12 +180,6 @@ configure() {
   DOMAIN="$(read_value NETBIRD_DOMAIN "NetBird domain (for example netbird.example.com)")"
   validate_domain "$DOMAIN"
 
-  ACME_EMAIL="$(read_value NETBIRD_LETSENCRYPT_EMAIL \
-    "Let's Encrypt email for certificate notices (leave empty for none)" "" optional)"
-  if [[ -n "$ACME_EMAIL" && "$ACME_EMAIL" != *@*.* ]]; then
-    die "Invalid email address: $ACME_EMAIL"
-  fi
-
   ENABLE_POSTGRES="$(read_yes_no NETBIRD_ENABLE_POSTGRES "Use PostgreSQL instead of SQLite?" true)"
   ENABLE_PROXY="$(read_yes_no NETBIRD_ENABLE_PROXY \
     "Enable the reverse proxy, publishing services on *.${DOMAIN}?" true)"
@@ -197,6 +203,34 @@ configure() {
     die "Country filtering requires CrowdSec (NETBIRD_ENABLE_CROWDSEC=true)."
   fi
 
+  ENABLE_MCP="$(read_yes_no NETBIRD_ENABLE_MCP \
+    "Enable the MCP endpoint for AI assistants at https://${DOMAIN}/api/mcp?" false)"
+  MCP_TOOLS=""
+  MCP_TOOLS_LABEL=""
+  if [[ "$ENABLE_MCP" == "true" ]]; then
+    local tools
+    tools="$(read_value NETBIRD_MCP_TOOLS \
+      "MCP tools: read-only, all, or a comma-separated list" read-only)"
+    tools="${tools// /}"
+    case "${tools,,}" in
+      read-only | readonly)
+        MCP_TOOLS="$MCP_READ_TOOLS"
+        MCP_TOOLS_LABEL="read-only tools"
+        ;;
+      all)
+        MCP_TOOLS_LABEL="all tools, including create, update and delete"
+        ;;
+      *)
+        [[ "$tools" =~ ^[a-z_]+(,[a-z_]+)*$ ]] ||
+          die "NETBIRD_MCP_TOOLS must be read-only, all, or tool names such as list_peers,get_peer."
+        MCP_TOOLS="$tools"
+        MCP_TOOLS_LABEL="${tools//,/, }"
+        ;;
+    esac
+  elif [[ -n "${NETBIRD_MCP_TOOLS:-}" ]]; then
+    die "NETBIRD_MCP_TOOLS requires the MCP endpoint (NETBIRD_ENABLE_MCP=true)."
+  fi
+
   [[ "$DOCKER_SUBNET" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.0/24$ ]] ||
     die "NETBIRD_DOCKER_SUBNET must be a /24 network such as 172.30.0.0/24."
   CADDY_IP="${BASH_REMATCH[1]}.10"
@@ -210,7 +244,7 @@ configure() {
 
 check_existing() {
   local f found=()
-  for f in docker-compose.yml docker-compose.yaml config.yaml Caddyfile dashboard.env proxy.env \
+  for f in docker-compose.yml docker-compose.yaml config.yaml Caddyfile server.env dashboard.env proxy.env \
     caddy.env postgres.env country-policy.yaml wasm; do
     [[ -e "$f" ]] && found+=("$f")
   done
@@ -343,6 +377,61 @@ EOF
   fi
 }
 
+render_server_env() {
+  local mcp_tools_line="NB_MCP_TOOLS=${MCP_TOOLS}"
+  [[ "$ENABLE_MCP" == "true" && -z "$MCP_TOOLS" ]] &&
+    mcp_tools_line="# Empty exposes every tool, including create, update and delete.
+NB_MCP_TOOLS="
+  [[ "$ENABLE_MCP" != "true" ]] && mcp_tools_line="# NB_MCP_TOOLS=${MCP_READ_TOOLS}"
+
+  local proxy_ports=""
+  [[ "$ENABLE_PROXY" == "true" ]] && proxy_ports="
+
+# Port range the reverse proxy assigns to TCP/UDP services
+# (defaults 10000 and 49151)
+# NB_PROXY_PORT_MIN=10000
+# NB_PROXY_PORT_MAX=49151"
+
+  cat <<EOF
+# Environment of the NetBird server container; config.yaml holds the rest.
+# After editing: ${DOCKER_COMPOSE} up -d server
+
+# MCP endpoint at https://${DOMAIN}/api/mcp, for AI assistants. Users sign in
+# through the dashboard login (OAuth) or send a personal access token, and the
+# tools act with that user's permissions.
+NB_MCP_ENABLED=${ENABLE_MCP}
+# Comma-separated allowlist of tools; an unknown name stops the server.
+${mcp_tools_line}
+# Secret of at least 32 bytes that seals MCP sign-ins. By default the store
+# encryption key is used; changing this signs every MCP client out.
+# NB_MCP_OAUTH_KEY=
+
+# Rate limiting of API calls made with personal access tokens (and MCP),
+# per token: requests per minute and burst. Caddy is the trusted proxy.
+# NB_API_RATE_LIMITING_ENABLED=true
+# NB_API_RATE_LIMITING_RPM=6
+# NB_API_RATE_LIMITING_BURST=500
+# NB_API_RATE_LIMITING_TRUSTED_PROXIES=${CADDY_IP}
+
+# Activity log in the dashboard (default true)
+# NB_EVENT_ACTIVITY_LOG_ENABLED=false
+
+# Peer geolocation, used by country posture checks (default enabled)
+# NB_DISABLE_GEOLOCATION=true
+
+# Temporarily refuse a peer key that keeps reconnecting with different system
+# details (one key copied to several machines), and log the refusals
+# NB_BLOCK_SAME_PEERS=true
+# NB_LOG_BLOCKED_PEERS=true
+
+# Peers syncing at the same time (default 1000)
+# NB_MAX_CONCURRENT_SYNCS=1000
+
+# Timeout of calls to the identity provider (default 10s)
+# NB_IDP_TIMEOUT=10s${proxy_ports}
+EOF
+}
+
 render_proxy_env() {
   cat <<EOF
 # NetBird reverse proxy
@@ -386,9 +475,6 @@ render_caddyfile() {
 	}
 "
   fi
-
-  [[ -n "$ACME_EMAIL" ]] && global_extra+="
-	email ${ACME_EMAIL}"
 
   if [[ "$ENABLE_CROWDSEC" == "true" ]]; then
     global_extra+="
@@ -484,6 +570,11 @@ render_caddyfile() {
 
 	# Relay, WebSocket proxy, API and the embedded identity provider
 	@backend path /relay* /ws-proxy/* /api/* /oauth2/* /federation/*
+	# MCP discovery documents, which clients look for at the root first
+	@mcp path /.well-known/oauth-protected-resource/api/mcp /.well-known/oauth-authorization-server/api/mcp/auth /.well-known/openid-configuration/api/mcp/auth
+	handle @mcp {
+		reverse_proxy server:80
+	}
 	handle @backend {
 		reverse_proxy server:80 {
 			flush_interval -1
@@ -642,6 +733,8 @@ ${postgres_service}
     container_name: netbird-server
     <<: *default
     command: ["--config", "/etc/netbird/config.yaml"]
+    env_file:
+      - ./server.env
     ports:
       - '${STUN_PORT}:${STUN_PORT}/udp'
     healthcheck:
@@ -711,6 +804,7 @@ render_files() {
   umask 077
 
   render_config_yaml > config.yaml
+  render_server_env > server.env
   render_dashboard_env > dashboard.env
   render_caddyfile > Caddyfile
   render_compose > docker-compose.yml
@@ -838,6 +932,18 @@ EOF
   cat <<EOF
 
 Browser client: ${browser_client}
+EOF
+  if [[ "$ENABLE_MCP" == "true" ]]; then
+    cat <<EOF
+
+MCP: https://${DOMAIN}/api/mcp (${MCP_TOOLS_LABEL}). Add it to an MCP
+client as a remote (streamable HTTP) server; it signs in through the dashboard
+login. Change the tools in server.env, then: $DOCKER_COMPOSE up -d server
+EOF
+  fi
+  cat <<EOF
+
+Other server settings (API rate limiting, activity log, ...) are in server.env.
 
 Files are in $(pwd). Back up config.yaml$([[ "$ENABLE_POSTGRES" == "true" ]] && echo " and postgres.env"): config.yaml holds
 the store encryption key, without which the stored data cannot be read.

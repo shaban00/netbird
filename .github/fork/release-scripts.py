@@ -13,6 +13,9 @@
 The last four live in .github/fork/scripts with @@GITHUB_OWNER@@,
 @@DOCKERHUB_NAMESPACE@@ and @@IMAGE_TAG@@ placeholders, which are filled in
 here so each release's scripts deploy that release's images.
+install-server.sh also gets @@MCP_READ_TOOLS@@, the read-only tools of the
+MCP catalog (management/internals/modules/mcpapi/catalog.go), so its
+read-only choice names only tools this release's server knows.
 
 Each edit to upstream's install.sh must match exactly once. If upstream
 changes the script so that an edit no longer applies, this fails instead of
@@ -98,6 +101,14 @@ def install_client_sh(owner: str) -> str:
     return text
 
 
+def mcp_read_tools() -> str:
+    catalog = (ROOT / "management/internals/modules/mcpapi/catalog.go").read_text()
+    tools = re.findall(r'^\s*read\("([a-z_]+)"', catalog, re.MULTILINE)
+    if len(tools) < 10 or "list_peers" not in tools:
+        sys.exit(f"error: found only {len(tools)} read-only MCP tools in catalog.go")
+    return ",".join(tools)
+
+
 def service_script(name: str, values: dict[str, str]) -> str:
     text = (SCRIPTS / name).read_text()
     for key, value in values.items():
@@ -123,6 +134,7 @@ def main() -> None:
         "DOCKERHUB_NAMESPACE": namespace,
         # Image tags drop the tag's leading v.
         "IMAGE_TAG": tag[1:],
+        "MCP_READ_TOOLS": mcp_read_tools(),
     }
 
     out = pathlib.Path(sys.argv[1])

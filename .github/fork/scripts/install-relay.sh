@@ -11,7 +11,6 @@
 #
 #   curl -fsSL https://github.com/@@GITHUB_OWNER@@/netbird/releases/latest/download/install-relay.sh | \
 #     NETBIRD_RELAY_DOMAIN=relay1.netbird.example.com \
-#     NETBIRD_LETSENCRYPT_EMAIL=admin@example.com \
 #     NETBIRD_RELAY_AUTH_SECRET='the authSecret from the NetBird server config.yaml' \
 #     bash
 #
@@ -109,12 +108,6 @@ validate_domain() {
   fi
 }
 
-validate_email() {
-  local email="$1"
-  [[ -n "$email" ]] || die "Let's Encrypt email cannot be empty."
-  [[ "$email" == *@*.* ]] || die "Invalid email address: $email"
-}
-
 configure() {
   # The relay obtains its certificate with the TLS-ALPN challenge, which Let's
   # Encrypt only performs on port 443, and it has no separate challenge port.
@@ -123,9 +116,6 @@ configure() {
 
   RELAY_DOMAIN="$(read_value NETBIRD_RELAY_DOMAIN "Relay domain (for example relay1.netbird.example.com)")"
   validate_domain "$RELAY_DOMAIN"
-
-  LETSENCRYPT_EMAIL="$(read_value NETBIRD_LETSENCRYPT_EMAIL "Let's Encrypt email")"
-  validate_email "$LETSENCRYPT_EMAIL"
 
   RELAY_AUTH_SECRET="$(read_value NETBIRD_RELAY_AUTH_SECRET \
     "Relay auth secret (the authSecret in the NetBird server's config.yaml; leave empty to generate one)" "" optional)"
@@ -193,7 +183,6 @@ NB_EXPOSED_ADDRESS=rels://${RELAY_DOMAIN}:${RELAY_PORT}
 NB_AUTH_SECRET=${RELAY_AUTH_SECRET}
 # Let's Encrypt
 NB_LETSENCRYPT_DOMAINS=${RELAY_DOMAIN}
-NB_LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
 NB_LETSENCRYPT_DATA_DIR=/data/letsencrypt
 # STUN
 NB_ENABLE_STUN=true

@@ -55,11 +55,14 @@ env:
 jobs:
   release:
     runs-on: ubuntu-24.04
+    # The whole tag is not an output: it contains the fork's name, which is
+    # also a secret's value (the Docker Hub user), so Actions would drop it.
+    # Jobs that need it rebuild it from these parts.
     outputs:
-      tag: ${{ steps.version.outputs.tag }}
       major: ${{ steps.version.outputs.major }}
       minor: ${{ steps.version.outputs.minor }}
       patch: ${{ steps.version.outputs.patch }}
+      build: ${{ steps.version.outputs.build }}
       skip_latest: ${{ steps.version.outputs.skip_latest }}
     steps:
       - name: Checkout
@@ -90,15 +93,15 @@ jobs:
             tag="$GITHUB_REF_NAME"
           fi
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
-          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-spydasec\.[0-9]+$ ]]; then
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-spydasec\.([0-9]+)$ ]]; then
             echo "::error::tag $tag must look like v0.83.1-spydasec.1"
             exit 1
           fi
           {
-            echo "tag=$tag"
             echo "major=${BASH_REMATCH[1]}"
             echo "minor=${BASH_REMATCH[2]}"
             echo "patch=${BASH_REMATCH[3]}"
+            echo "build=${BASH_REMATCH[4]}"
           } >> "$GITHUB_OUTPUT"
 
           # Only the newest fork release moves the latest tags, so rebuilding
@@ -256,7 +259,7 @@ jobs:
     name: Desktop app (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
     env:
-      RELEASE_TAG: ${{ needs.release.outputs.tag }}
+      RELEASE_TAG: v${{ needs.release.outputs.major }}.${{ needs.release.outputs.minor }}.${{ needs.release.outputs.patch }}-spydasec.${{ needs.release.outputs.build }}
       SKIP_LATEST: ${{ needs.release.outputs.skip_latest }}
     steps:
       - name: Checkout
