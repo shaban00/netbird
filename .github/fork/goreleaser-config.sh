@@ -20,6 +20,9 @@
 #   - the release notes start with how to install this release
 #   - binaries check this fork's releases for updates, not NetBird's (see
 #     fork-ldflags.sh), and each release carries the version file they read
+#   - the reverse proxy and the recorder, which only set their own
+#     main.Version, also set NetBird's version: the NetBird clients they embed
+#     report it to management, and would otherwise show as "development"
 #   - an Arch Linux package (.pkg.tar.zst) is built from the same binaries as
 #     upstream's .deb, with pacman hooks from .github/fork/archlinux. Its
 #     version is <upstream version>-<N> for tag v<upstream version>-spydasec.N:
@@ -59,6 +62,7 @@ yq '
   ("https://github.com/" + strenv(GITHUB_OWNER) + "/netbird/releases/latest/download") as $dl |
   del(.brews) |
   del(.uploads) |
+  (.builds[].ldflags[]? | select(contains("main.Version={{.Version}}") and (contains("netbird/version.version=") | not))) |= . + " -X github.com/netbirdio/netbird/version.version={{.Version}}" |
   (.builds[].ldflags[]? | select(contains("netbird/version.version="))) |= . + " " + strenv(FORK_LDFLAGS) |
   .dockers_v2[].images |= map(
     sub("^ghcr\.io/netbirdio/"; "ghcr.io/" + strenv(GHCR_NAMESPACE) + "/") |
