@@ -56,8 +56,9 @@ SERVER_IMAGE="${SERVER_IMAGE:-${NAMESPACE}/netbird-server:${IMAGE_TAG}}"
 PROXY_IMAGE="${PROXY_IMAGE:-${NAMESPACE}/netbird-reverse-proxy:${IMAGE_TAG}}"
 CADDY_IMAGE="${CADDY_IMAGE:-${NAMESPACE}/netbird-caddy:${IMAGE_TAG}}"
 CROWDSEC_IMAGE="${CROWDSEC_IMAGE:-${NAMESPACE}/netbird-crowdsec:${IMAGE_TAG}}"
-# The dashboard is released separately, so it follows its own latest release.
-DASHBOARD_IMAGE="${DASHBOARD_IMAGE:-${NAMESPACE}/netbird-dashboard:latest}"
+# The dashboard is released separately; this is its newest fork release when
+# this server release was built.
+DASHBOARD_IMAGE="${DASHBOARD_IMAGE:-${NAMESPACE}/netbird-dashboard:@@DASHBOARD_TAG@@}"
 POSTGRES_IMAGE="${POSTGRES_IMAGE:-postgres:18}"
 
 STUN_PORT="${NETBIRD_STUN_PORT:-3478}"

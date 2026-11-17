@@ -16,6 +16,9 @@ here so each release's scripts deploy that release's images.
 install-server.sh also gets @@MCP_READ_TOOLS@@, the read-only tools of the
 MCP catalog (management/internals/modules/mcpapi/catalog.go), so its
 read-only choice names only tools this release's server knows.
+It also gets @@DASHBOARD_TAG@@, the newest fork release of the dashboard
+image on Docker Hub (or DASHBOARD_TAG when set), so a later dashboard release
+does not change what an older server release installs.
 
 Each edit to upstream's install.sh must match exactly once. If upstream
 changes the script so that an edit no longer applies, this fails instead of
@@ -24,13 +27,16 @@ publishing a half-converted script.
 Usage: release-scripts.py OUT_DIR
 Environment: GITHUB_OWNER (owner of the fork's repository),
              DOCKERHUB_NAMESPACE (Docker Hub namespace of the fork's images),
-             RELEASE_TAG (the release's tag, e.g. v0.83.1-spydasec.1)
+             RELEASE_TAG (the release's tag, e.g. v0.83.1-spydasec.1),
+             DASHBOARD_TAG (optional: the dashboard image tag to pin)
 """
 
+import json
 import os
 import pathlib
 import re
 import sys
+import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPTS = pathlib.Path(__file__).resolve().parent / "scripts"
@@ -109,6 +115,34 @@ def mcp_read_tools() -> str:
     return ",".join(tools)
 
 
+def dashboard_tag(namespace: str, suffix: str) -> str:
+    """Newest fork release tag of NAMESPACE/netbird-dashboard on Docker Hub.
+
+    Fork releases are tagged 2.97.0-spydasec.1; older ones kept the leading v.
+    The -rootless and -ubi variants and latest are skipped. When a version has
+    both forms, the one without the v wins.
+    """
+    pattern = re.compile(rf"(v?)(\d+)\.(\d+)\.(\d+)-{re.escape(suffix)}\.(\d+)")
+    url = f"https://hub.docker.com/v2/repositories/{namespace}/netbird-dashboard/tags?page_size=100"
+    best = None
+    while url:
+        try:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                page = json.load(resp)
+        except OSError as err:
+            sys.exit(f"error: listing {namespace}/netbird-dashboard tags on Docker Hub: {err}")
+        for tag in page.get("results", []):
+            m = pattern.fullmatch(tag["name"])
+            if m:
+                key = (tuple(int(g) for g in m.groups()[1:]), m.group(1) == "")
+                if best is None or key > best[0]:
+                    best = (key, tag["name"])
+        url = page.get("next")
+    if best is None:
+        sys.exit(f"error: no {namespace}/netbird-dashboard image tagged like 2.97.0-{suffix}.1 on Docker Hub")
+    return best[1]
+
+
 def service_script(name: str, values: dict[str, str]) -> str:
     text = (SCRIPTS / name).read_text()
     for key, value in values.items():
@@ -135,12 +169,15 @@ def main() -> None:
         # Image tags drop the tag's leading v.
         "IMAGE_TAG": tag[1:],
         "MCP_READ_TOOLS": mcp_read_tools(),
+        "DASHBOARD_TAG": os.environ.get("DASHBOARD_TAG")
+        or dashboard_tag(namespace, tag.split("-", 1)[1].rsplit(".", 1)[0]),
     }
 
     out = pathlib.Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
     scripts = [("install-client.sh", install_client_sh(owner))]
     scripts += [(name, service_script(name, values)) for name in SERVICE_SCRIPTS]
+    print(f"dashboard image: {namespace}/netbird-dashboard:{values['DASHBOARD_TAG']}")
     for name, text in scripts:
         path = out / name
         path.write_text(text)

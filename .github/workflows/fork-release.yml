@@ -137,11 +137,14 @@ jobs:
         run: GITHUB_REF="refs/tags/$RELEASE_TAG" bash release_files/rpm-provides.sh
       - name: Generate the fork's release scripts
         # install-client.sh and the install-*.sh service scripts, pointing at
-        # this release's images (RELEASE_TAG). GoReleaser only attaches files
+        # this release's images (RELEASE_TAG) and the newest fork dashboard
+        # image on Docker Hub (or the DASHBOARD_TAG repository variable, when
+        # set, to pin another one). GoReleaser only attaches files
         # inside the checkout, and bin/ is git-ignored, so they cannot make the
         # working tree dirty.
         env:
           GITHUB_OWNER: ${{ github.repository_owner }}
+          DASHBOARD_TAG: ${{ vars.DASHBOARD_TAG }}
         run: python3 .github/fork/release-scripts.py bin/fork-release
       - name: Generate the fork's GoReleaser config
         # Written outside the checkout: GoReleaser refuses to release from a
