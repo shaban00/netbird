@@ -23,6 +23,9 @@
 #   - the reverse proxy and the recorder, which only set their own
 #     main.Version, also set NetBird's version: the NetBird clients they embed
 #     report it to management, and would otherwise show as "development"
+#   - binaries report the upstream version they are built from (0.83.1), as
+#     NetBird's own builds do, not the release tag (0.83.1-spydasec.5); the
+#     tag still names the release, its packages and its images
 #   - an Arch Linux package (.pkg.tar.zst) is built from the same binaries as
 #     upstream's .deb, with pacman hooks from .github/fork/archlinux. Its
 #     version is <upstream version>-<N> for tag v<upstream version>-spydasec.N:
@@ -64,6 +67,7 @@ yq '
   del(.uploads) |
   (.builds[].ldflags[]? | select(contains("main.Version={{.Version}}") and (contains("netbird/version.version=") | not))) |= . + " -X github.com/netbirdio/netbird/version.version={{.Version}}" |
   (.builds[].ldflags[]? | select(contains("netbird/version.version="))) |= . + " " + strenv(FORK_LDFLAGS) |
+  (.builds[].ldflags[]?) |= sub("(?P<k>version\.version|main\.Version)=\{\{ ?\.Version ?\}\}"; "${k}={{.Major}}.{{.Minor}}.{{.Patch}}") |
   .dockers_v2[].images |= map(
     sub("^ghcr\.io/netbirdio/"; "ghcr.io/" + strenv(GHCR_NAMESPACE) + "/") |
     sub("^netbirdio/"; strenv(DOCKERHUB_NAMESPACE) + "/") |

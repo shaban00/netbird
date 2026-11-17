@@ -34,6 +34,8 @@ var (
 	barEmpty      = "░"
 
 	lastLineWidth int
+
+	copyToClipboard = writeClipboardText
 )
 
 var (
@@ -524,8 +526,10 @@ func renderReceive(
 					continue
 				}
 
-				if err := writeClipboardText(cmd.Context(), ev.GetClipboardText()); err != nil {
-					return err
+				if err := copyToClipboard(cmd.Context(), ev.GetClipboardText()); err != nil {
+					cmd.PrintErrf("Could not copy to the clipboard (%v); printing it instead:\n", err)
+					cmd.Print(clipboardForOutput(cmd.OutOrStdout(), ev.GetClipboardText()))
+					continue
 				}
 
 				cmd.Println("Copied to clipboard")
@@ -588,7 +592,10 @@ func shortBirddropID(id string) string {
 
 func clipboardForOutput(w io.Writer, text string) string {
 	if f, ok := w.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		return birddrop.EscapeForTerminal(text)
+		text = birddrop.EscapeForTerminal(text)
+		if !strings.HasSuffix(text, "\n") {
+			text += "\n"
+		}
 	}
 	return text
 }

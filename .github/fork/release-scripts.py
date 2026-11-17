@@ -25,8 +25,8 @@ Each edit to upstream's install.sh must match exactly once. If upstream
 changes the script so that an edit no longer applies, this fails instead of
 publishing a half-converted script.
 
-It also writes OUT_DIR/version, the release's version without the v
-(0.83.1-spydasec.1). Attached to every release, it is served at
+It also writes OUT_DIR/version, the upstream version the release is built
+from (0.83.1 for v0.83.1-spydasec.1), which is what the binaries report. Attached to every release, it is served at
 releases/latest/download/version, which the fork's binaries check for updates
 in place of https://pkgs.netbird.io/releases/latest/version.
 
@@ -190,7 +190,9 @@ def main() -> None:
         path.write_text(text)
         path.chmod(0o755)
         print(f"wrote {path}")
-    (out / "version").write_text(tag[1:] + "\n")
+    # The binaries report the upstream version without the -spydasec.N suffix
+    # (see goreleaser-config.sh), so the version file they compare with does too.
+    (out / "version").write_text(tag[1:].split("-", 1)[0] + "\n")
     print(f"wrote {out / 'version'}")
 
 
