@@ -15,9 +15,11 @@
 #   - fork tags (vX.Y.Z-<suffix>.N) are full releases, not prereleases, and
 #     GitHub's "Latest release" follows SKIP_LATEST, as in the main config
 #     (upstream leaves both to its signing pipeline)
-#   - the GTK4 Linux packages get an Arch Linux package (.pkg.tar.zst) next to
-#     the .deb, versioned like the CLI's: <upstream version>-<N> for tag
-#     v<upstream version>-spydasec.N
+#   - the Linux packages (GTK4 netbird-ui and GTK3 netbird-ui-gtk3) get an
+#     Arch Linux package (.pkg.tar.zst) next to the .deb, versioned like the
+#     CLI's: <upstream version>-<N> for tag v<upstream version>-spydasec.N.
+#     The two conflict, as their .debs do. Pacman's replaces is dropped: it
+#     would swap one for the other on an upgrade from a repository.
 #
 # Usage: goreleaser-ui-config.sh IN OUT
 
@@ -38,14 +40,20 @@ yq '
   del(.brews) |
   .nfpms += [
     .nfpms[]? |
-    select((.formats | contains(["deb"])) and .package_name == "netbird-ui") |
+    select((.formats | contains(["deb"])) and (.package_name == "netbird-ui" or .package_name == "netbird-ui-gtk3")) |
     . * {
       "id": (.id | sub("_deb"; "_archlinux")),
       "formats": ["archlinux"],
       "release": strenv(ARCH_PKGREL),
-      "dependencies": ["netbird", "gtk4", "webkitgtk-6.0", "xdg-utils"],
+      "dependencies": (
+        if .package_name == "netbird-ui-gtk3"
+        then ["netbird", "gtk3", "webkit2gtk-4.1", "xdg-utils"]
+        else ["netbird", "gtk4", "webkitgtk-6.0", "xdg-utils"]
+        end
+      ),
       "archlinux": {"packager": strenv(ARCH_PACKAGER)}
-    }
+    } |
+    del(.replaces)
   ] |
   (.release.make_latest | key) head_comment = "" |
   .release.prerelease = "false" |
