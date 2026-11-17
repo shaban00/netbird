@@ -507,6 +507,7 @@ func setupSetConfigReq(customDNSAddressConverted []byte, cmd *cobra.Command, pro
 	}
 	setSSHSetConfigFields(&req, cmd)
 	setBoolPtrIfChanged(cmd, remoteJobsAllowedFlag, &req.RemoteJobsAllowed, remoteJobsAllowed)
+	setBoolPtrIfChanged(cmd, allowBirdDropFlag, &req.AllowBirdDrop, allowBirdDrop)
 
 	if cmd.Flag(interfaceNameFlag).Changed {
 		if err := parseInterfaceName(interfaceName); err != nil {
@@ -599,6 +600,7 @@ func setupConfig(customDNSAddressConverted []byte, cmd *cobra.Command, configFil
 		ic.ServerSSHAllowed = &serverSSHAllowed
 	}
 	setBoolPtrIfChanged(cmd, remoteJobsAllowedFlag, &ic.RemoteJobsAllowed, remoteJobsAllowed)
+	setBoolPtrIfChanged(cmd, allowBirdDropFlag, &ic.AllowBirdDrop, allowBirdDrop)
 
 	if cmd.Flag(enableSSHRootFlag).Changed {
 		ic.EnableSSHRoot = &enableSSHRoot
@@ -773,6 +775,7 @@ func setupLoginRequest(providedSetupKey string, customDNSAddressConverted []byte
 
 	setSSHLoginFields(&loginRequest, cmd)
 	setBoolPtrIfChanged(cmd, remoteJobsAllowedFlag, &loginRequest.RemoteJobsAllowed, remoteJobsAllowed)
+	setBoolPtrIfChanged(cmd, allowBirdDropFlag, &loginRequest.AllowBirdDrop, allowBirdDrop)
 
 	if cmd.Flag(disableAutoConnectFlag).Changed {
 		loginRequest.DisableAutoConnect = &autoConnectDisabled
