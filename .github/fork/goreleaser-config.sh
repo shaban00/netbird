@@ -37,7 +37,7 @@ out=${2:-.goreleaser.fork.yaml}
 : "${DOCKERHUB_NAMESPACE:?set DOCKERHUB_NAMESPACE, e.g. spydasec}"
 : "${GHCR_NAMESPACE:?set GHCR_NAMESPACE, e.g. spydasec}"
 : "${FORK_RELEASE_FILES:?set FORK_RELEASE_FILES to the directory release-scripts.py wrote}"
-for f in install-client.sh install-server.sh install-relay.sh install-signal.sh install-recorder.sh version; do
+for f in install-client.sh install-server.sh install-relay.sh install-signal.sh install-recorder.sh install-proxy.sh version; do
   [[ -f "$FORK_RELEASE_FILES/$f" ]] || { echo "error: $FORK_RELEASE_FILES/$f is missing" >&2; exit 1; }
 done
 GITHUB_OWNER=${GITHUB_OWNER:-$GHCR_NAMESPACE}
@@ -99,6 +99,7 @@ yq '
     "curl -fsSL " + $dl + "/install-relay.sh | bash\n" +
     "curl -fsSL " + $dl + "/install-signal.sh | bash\n" +
     "curl -fsSL " + $dl + "/install-recorder.sh | bash\n" +
+    "curl -fsSL " + $dl + "/install-proxy.sh | bash\n" +
     "```\n\n" +
     "Images: `" + strenv(DOCKERHUB_NAMESPACE) + "/netbird-*` on Docker Hub and `ghcr.io/" + strenv(GHCR_NAMESPACE) + "/netbird-*`.\n" |
   .release.prerelease = "false" |

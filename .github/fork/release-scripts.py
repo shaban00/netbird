@@ -9,8 +9,9 @@
   install-relay.sh     standalone relay
   install-signal.sh    standalone Signal server
   install-recorder.sh  SSH session recorder
+  install-proxy.sh     standalone reverse proxy
 
-The last four live in .github/fork/scripts with @@GITHUB_OWNER@@,
+The last five live in .github/fork/scripts with @@GITHUB_OWNER@@,
 @@DOCKERHUB_NAMESPACE@@ and @@IMAGE_TAG@@ placeholders, which are filled in
 here so each release's scripts deploy that release's images.
 install-server.sh also gets @@MCP_READ_TOOLS@@, the read-only tools of the
@@ -50,6 +51,7 @@ SERVICE_SCRIPTS = [
     "install-relay.sh",
     "install-signal.sh",
     "install-recorder.sh",
+    "install-proxy.sh",
 ]
 
 
