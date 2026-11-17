@@ -2,10 +2,10 @@
 # this fork's names. Kept separate from upstream's release.yml (disabled in
 # this fork) so syncing with upstream never conflicts.
 #
-# Triggered by a tag of the form vX.Y.Z-spydasec.N, where X.Y.Z is the upstream
-# release it is based on and N counts this fork's builds of it:
+# Triggered by a tag of the form vX.Y.Z-N, where X.Y.Z is the upstream release
+# it is based on and N counts this fork's builds of it:
 #
-#   git tag v0.83.1-spydasec.1 && git push origin v0.83.1-spydasec.1
+#   git tag v0.83.1-1 && git push origin v0.83.1-1
 #
 # Publishes:
 #   - Docker images (multi-arch) to Docker Hub $DOCKERHUB_NAMESPACE/<image>
@@ -30,12 +30,12 @@ name: Fork release
 on:
   push:
     tags:
-      - "v*-spydasec.*"
+      - "v[0-9]+.[0-9]+.[0-9]+-[0-9]+"
   workflow_dispatch:
     inputs:
       version:
         description: "Dry run only: version to build as (nothing is published)"
-        default: "v0.0.0-spydasec.0"
+        default: "v0.0.0-0"
 
 permissions:
   contents: write
@@ -71,7 +71,7 @@ jobs:
           fetch-depth: 0 # It is required for GoReleaser to work properly
           persist-credentials: false
       - name: Fetch upstream release tags
-        # Fork tags (vX.Y.Z-spydasec.N) are semver prereleases, which the RPM
+        # Fork tags (vX.Y.Z-N) are semver prereleases, which the RPM
         # changelog generator skips, so it needs upstream's release tags. They
         # also make the release notes list what this release adds on top of
         # the upstream version. Fetched into this checkout only, never pushed.
@@ -93,8 +93,8 @@ jobs:
             tag="$GITHUB_REF_NAME"
           fi
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
-          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-spydasec\.([0-9]+)$ ]]; then
-            echo "::error::tag $tag must look like v0.83.1-spydasec.1"
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)$ ]]; then
+            echo "::error::tag $tag must look like v0.83.1-1"
             exit 1
           fi
           {
@@ -106,7 +106,7 @@ jobs:
 
           # Only the newest fork release moves the latest tags, so rebuilding
           # an older one cannot drag latest backwards. Upstream tags are ignored.
-          newest=$(git tag -l 'v*-spydasec.*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-spydasec\.[0-9]+$' | sort -V | tail -n1)
+          newest=$(git tag -l 'v*-*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' | sort -V | tail -n1)
           if [[ "$tag" == "$newest" ]]; then
             echo "SKIP_LATEST=false" >> "$GITHUB_ENV"
             echo "skip_latest=false" >> "$GITHUB_OUTPUT"
@@ -262,7 +262,7 @@ jobs:
     name: Desktop app (${{ matrix.name }})
     runs-on: ${{ matrix.runner }}
     env:
-      RELEASE_TAG: v${{ needs.release.outputs.major }}.${{ needs.release.outputs.minor }}.${{ needs.release.outputs.patch }}-spydasec.${{ needs.release.outputs.build }}
+      RELEASE_TAG: v${{ needs.release.outputs.major }}.${{ needs.release.outputs.minor }}.${{ needs.release.outputs.patch }}-${{ needs.release.outputs.build }}
       SKIP_LATEST: ${{ needs.release.outputs.skip_latest }}
     steps:
       - name: Checkout

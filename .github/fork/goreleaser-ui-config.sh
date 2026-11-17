@@ -12,15 +12,15 @@
 # Each uploads into the release created by .goreleaser.yaml (see
 # goreleaser-config.sh). Changes made to upstream's config:
 #   - NetBird's package-server uploads are removed
-#   - fork tags (vX.Y.Z-<suffix>.N) are full releases, not prereleases, and
+#   - fork tags (vX.Y.Z-N) are full releases, not prereleases, and
 #     GitHub's "Latest release" follows SKIP_LATEST, as in the main config
 #     (upstream leaves both to its signing pipeline)
 #   - the app checks this fork's releases for updates (see fork-ldflags.sh)
 #   - the app reports the upstream version it is built from (0.83.1), not the
-#     release tag (0.83.1-spydasec.5)
+#     release tag (0.83.1-1)
 #   - the Linux packages (GTK4 netbird-ui and GTK3 netbird-ui-gtk3) get an
 #     Arch Linux package (.pkg.tar.zst) next to the .deb, versioned like the
-#     CLI's: <upstream version>-<N> for tag v<upstream version>-spydasec.N.
+#     CLI's: <upstream version>-<N> for tag v<upstream version>-N.
 #     The two conflict, as their .debs do. Pacman's replaces is dropped: it
 #     would swap one for the other on an upgrade from a repository.
 #
@@ -33,7 +33,7 @@ out=${2:?usage: goreleaser-ui-config.sh IN OUT}
 ARCH_PACKAGER=${ARCH_PACKAGER:-${GHCR_NAMESPACE:-spydasec}}
 # Arch package release (pkgrel), as in goreleaser-config.sh.
 ARCH_PKGREL=1
-if [[ "${RELEASE_TAG:-}" =~ -spydasec\.([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
+if [[ "${RELEASE_TAG:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
   ARCH_PKGREL=$(( 10#${BASH_REMATCH[1]} ))
 fi
 FORK_LDFLAGS=$(bash "$(dirname "$0")/fork-ldflags.sh" "${GITHUB_OWNER:-${GHCR_NAMESPACE:-spydasec}}")

@@ -26,14 +26,14 @@ changes the script so that an edit no longer applies, this fails instead of
 publishing a half-converted script.
 
 It also writes OUT_DIR/version, the upstream version the release is built
-from (0.83.1 for v0.83.1-spydasec.1), which is what the binaries report. Attached to every release, it is served at
+from (0.83.1 for v0.83.1-1), which is what the binaries report. Attached to every release, it is served at
 releases/latest/download/version, which the fork's binaries check for updates
 in place of https://pkgs.netbird.io/releases/latest/version.
 
 Usage: release-scripts.py OUT_DIR
 Environment: GITHUB_OWNER (owner of the fork's repository),
              DOCKERHUB_NAMESPACE (Docker Hub namespace of the fork's images),
-             RELEASE_TAG (the release's tag, e.g. v0.83.1-spydasec.1),
+             RELEASE_TAG (the release's tag, e.g. v0.83.1-1),
              DASHBOARD_TAG (optional: the dashboard image tag to pin)
 """
 
@@ -73,7 +73,7 @@ def install_client_sh(owner: str) -> str:
             'local URL="https://pkgs.netbird.io/releases/latest"',
             'local URL="https://api.github.com/repos/${OWNER}/${REPO}/releases/latest"',
         ),
-        # Accept fork tags such as v0.83.1-spydasec.1.
+        # Accept fork tags such as v0.83.1-1.
         (
             "grep -Eo '\\\"tag_name\\\":\\s*\\\"v([0-9]+\\.){2}[0-9]+\"'",
             "grep -Eo '\\\"tag_name\\\":\\s*\\\"v([0-9]+\\.){2}[0-9]+(-[0-9A-Za-z.]+)?\"'",
@@ -122,14 +122,13 @@ def mcp_read_tools() -> str:
     return ",".join(tools)
 
 
-def dashboard_tag(namespace: str, suffix: str) -> str:
+def dashboard_tag(namespace: str) -> str:
     """Newest fork release tag of NAMESPACE/netbird-dashboard on Docker Hub.
 
-    Fork releases are tagged 2.97.0-spydasec.1; older ones kept the leading v.
-    The -rootless and -ubi variants and latest are skipped. When a version has
-    both forms, the one without the v wins.
+    Fork releases are tagged 2.97.0-1 (<upstream version>-<N>). The -rootless
+    and -ubi variants and latest are skipped.
     """
-    pattern = re.compile(rf"(v?)(\d+)\.(\d+)\.(\d+)-{re.escape(suffix)}\.(\d+)")
+    pattern = re.compile(r"(\d+)\.(\d+)\.(\d+)-(\d+)")
     url = f"https://hub.docker.com/v2/repositories/{namespace}/netbird-dashboard/tags?page_size=100"
     best = None
     while url:
@@ -141,12 +140,12 @@ def dashboard_tag(namespace: str, suffix: str) -> str:
         for tag in page.get("results", []):
             m = pattern.fullmatch(tag["name"])
             if m:
-                key = (tuple(int(g) for g in m.groups()[1:]), m.group(1) == "")
+                key = tuple(int(g) for g in m.groups())
                 if best is None or key > best[0]:
                     best = (key, tag["name"])
         url = page.get("next")
     if best is None:
-        sys.exit(f"error: no {namespace}/netbird-dashboard image tagged like 2.97.0-{suffix}.1 on Docker Hub")
+        sys.exit(f"error: no {namespace}/netbird-dashboard image tagged like 2.97.0-1 on Docker Hub")
     return best[1]
 
 
@@ -168,16 +167,15 @@ def main() -> None:
     owner = os.environ.get("GITHUB_OWNER") or sys.exit("error: set GITHUB_OWNER")
     namespace = os.environ.get("DOCKERHUB_NAMESPACE") or sys.exit("error: set DOCKERHUB_NAMESPACE")
     tag = os.environ.get("RELEASE_TAG") or sys.exit("error: set RELEASE_TAG")
-    if not re.fullmatch(r"v\d+\.\d+\.\d+-[0-9A-Za-z.]+", tag):
-        sys.exit(f"error: RELEASE_TAG {tag!r} must look like v0.83.1-spydasec.1")
+    if not re.fullmatch(r"v\d+\.\d+\.\d+-\d+", tag):
+        sys.exit(f"error: RELEASE_TAG {tag!r} must look like v0.83.1-1")
     values = {
         "GITHUB_OWNER": owner,
         "DOCKERHUB_NAMESPACE": namespace,
         # Image tags drop the tag's leading v.
         "IMAGE_TAG": tag[1:],
         "MCP_READ_TOOLS": mcp_read_tools(),
-        "DASHBOARD_TAG": os.environ.get("DASHBOARD_TAG")
-        or dashboard_tag(namespace, tag.split("-", 1)[1].rsplit(".", 1)[0]),
+        "DASHBOARD_TAG": os.environ.get("DASHBOARD_TAG") or dashboard_tag(namespace),
     }
 
     out = pathlib.Path(sys.argv[1])
@@ -190,7 +188,7 @@ def main() -> None:
         path.write_text(text)
         path.chmod(0o755)
         print(f"wrote {path}")
-    # The binaries report the upstream version without the -spydasec.N suffix
+    # The binaries report the upstream version without the -N suffix
     # (see goreleaser-config.sh), so the version file they compare with does too.
     (out / "version").write_text(tag[1:].split("-", 1)[0] + "\n")
     print(f"wrote {out / 'version'}")

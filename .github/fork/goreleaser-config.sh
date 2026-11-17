@@ -12,7 +12,7 @@
 #     (management -> netbird-management; netbird, netbird-server and nblink keep
 #     their names)
 #   - the Homebrew tap and NetBird's package-server uploads are removed
-#   - fork tags (vX.Y.Z-<suffix>.N) are full releases, not prereleases
+#   - fork tags (vX.Y.Z-N) are full releases, not prereleases
 #   - GitHub's "Latest release" follows SKIP_LATEST, like the Docker latest tags
 #   - upstream's install/getting-started/enterprise scripts are replaced by
 #     the fork's install-*.sh scripts in $FORK_RELEASE_FILES (written by
@@ -24,11 +24,11 @@
 #     main.Version, also set NetBird's version: the NetBird clients they embed
 #     report it to management, and would otherwise show as "development"
 #   - binaries report the upstream version they are built from (0.83.1), as
-#     NetBird's own builds do, not the release tag (0.83.1-spydasec.5); the
+#     NetBird's own builds do, not the release tag (0.83.1-1); the
 #     tag still names the release, its packages and its images
 #   - an Arch Linux package (.pkg.tar.zst) is built from the same binaries as
 #     upstream's .deb, with pacman hooks from .github/fork/archlinux. Its
-#     version is <upstream version>-<N> for tag v<upstream version>-spydasec.N:
+#     version is <upstream version>-<N> for tag v<upstream version>-N:
 #     Arch versions cannot hold the suffix, and N is what pkgrel is for.
 #
 # RPM signing needs no change: it only runs when GPG_RPM_KEY_FILE is set.
@@ -45,11 +45,11 @@ for f in install-client.sh install-server.sh install-relay.sh install-signal.sh 
 done
 GITHUB_OWNER=${GITHUB_OWNER:-$GHCR_NAMESPACE}
 ARCH_PACKAGER=${ARCH_PACKAGER:-$GHCR_NAMESPACE}
-# Arch package release (pkgrel): N from RELEASE_TAG vX.Y.Z-spydasec.N. GoReleaser
+# Arch package release (pkgrel): N from RELEASE_TAG vX.Y.Z-N. GoReleaser
 # does not template nfpm's release field, so it is filled in here. Arch needs
-# it to be at least 1 (a dry run builds as ...spydasec.0).
+# it to be at least 1 (a dry run builds as v0.0.0-0).
 ARCH_PKGREL=1
-if [[ "${RELEASE_TAG:-}" =~ -spydasec\.([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
+if [[ "${RELEASE_TAG:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-([0-9]+)$ ]] && (( 10#${BASH_REMATCH[1]} >= 1 )); then
   ARCH_PKGREL=$(( 10#${BASH_REMATCH[1]} ))
 fi
 FORK_LDFLAGS=$(bash "$(dirname "$0")/fork-ldflags.sh" "$GITHUB_OWNER")
