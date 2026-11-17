@@ -11,6 +11,8 @@
 #                  restrict the dashboard to (or block) countries
 #   MCP            an endpoint at https://<domain>/api/mcp for AI assistants,
 #                  read-only by default
+#   Agent Network  the dashboard's Agent Network pages (AI providers, policies,
+#                  usage and logs); needs the reverse proxy. Off by default
 #
 # Cloud federation is enabled without asking: the server is an OIDC issuer at
 # https://<domain>/federation, so peers can get short-lived AWS, GCP and Azure
@@ -31,6 +33,7 @@
 #     NETBIRD_ALLOWED_COUNTRIES=US,CA \
 #     NETBIRD_ENABLE_MCP=true \
 #     NETBIRD_MCP_TOOLS=read-only \
+#     NETBIRD_AGENT_NETWORK=enabled \
 #     bash
 #
 # Browser client: the dashboard's browser SSH and RDP run the NetBird client
@@ -46,6 +49,12 @@
 # MCP tools: NETBIRD_MCP_TOOLS is read-only (the list_* and get_* tools), all
 # (every tool, including create, update and delete), or a comma-separated
 # list such as list_peers,get_peer.
+#
+# Agent Network: NETBIRD_AGENT_NETWORK is off (default), enabled (the regular
+# dashboard plus an Agent Network menu, marked Beta), or only (the dashboard
+# shows Agent Network alone; networks, DNS, the reverse proxy and activity are
+# hidden). It is a dashboard setting (dashboard.env); the reverse proxy already
+# serves private services, which Agent Network routes through.
 #
 # Server settings read from the environment (MCP, API rate limiting, activity
 # log and others) are in server.env; config.yaml holds the rest.
@@ -192,6 +201,22 @@ configure() {
   if [[ "$ENABLE_PROXY" == "true" ]] && ! resolves "nb-wildcard-check.${DOMAIN}"; then
     die "The reverse proxy needs a wildcard DNS record: *.${DOMAIN} must point to this server."
   fi
+  AGENT_NETWORK=off
+  if [[ "$ENABLE_PROXY" == "true" ]]; then
+    AGENT_NETWORK="$(read_value NETBIRD_AGENT_NETWORK \
+      "Agent Network in the dashboard: off, enabled (alongside the regular pages), or only" off)"
+  elif [[ -n "${NETBIRD_AGENT_NETWORK:-}" ]]; then
+    AGENT_NETWORK="$NETBIRD_AGENT_NETWORK"
+  fi
+  case "${AGENT_NETWORK,,}" in
+    off | n | no | false | 0) AGENT_NETWORK=off ;;
+    enabled | on | y | yes | true | 1) AGENT_NETWORK=enabled ;;
+    only) AGENT_NETWORK=only ;;
+    *) die "NETBIRD_AGENT_NETWORK must be off, enabled or only, got: ${AGENT_NETWORK}" ;;
+  esac
+  [[ "$AGENT_NETWORK" == "off" || "$ENABLE_PROXY" == "true" ]] ||
+    die "Agent Network requires the reverse proxy (NETBIRD_ENABLE_PROXY=true)."
+
   ENABLE_CROWDSEC="$(read_yes_no NETBIRD_ENABLE_CROWDSEC "Enable CrowdSec protection?" true)"
 
   ALLOWED_COUNTRIES=""
@@ -389,6 +414,21 @@ AUTH_SILENT_REDIRECT_URI=/nb-silent-auth
 NGINX_SSL_PORT=443
 LETSENCRYPT_DOMAIN=none
 EOF
+  case "$AGENT_NETWORK" in
+    enabled)
+      cat <<EOF
+# Agent Network: the regular dashboard plus the Agent Network menu (Beta)
+NETBIRD_AGENT_NETWORK_ENABLED=true
+EOF
+      ;;
+    only)
+      cat <<EOF
+# Agent Network only: the regular pages (networks, DNS, reverse proxy,
+# activity) are hidden
+NETBIRD_AGENT_NETWORK_ONLY=true
+EOF
+      ;;
+  esac
   if [[ -n "$WASM_URL" ]]; then
     cat <<EOF
 # Browser client (WebAssembly) for browser SSH and RDP
@@ -967,6 +1007,15 @@ EOF
   fi
   cat <<EOF
 EOF
+  if [[ "$AGENT_NETWORK" != "off" ]]; then
+    local mode="alongside the regular dashboard (Beta)"
+    [[ "$AGENT_NETWORK" == "only" ]] && mode="only; the regular dashboard pages are hidden"
+    cat <<EOF
+
+Agent Network: ${mode}. Change it in dashboard.env, then:
+$DOCKER_COMPOSE up -d dashboard
+EOF
+  fi
   if [[ "$ENABLE_CLOUD_FEDERATION" == "true" ]]; then
     cat <<EOF
 
