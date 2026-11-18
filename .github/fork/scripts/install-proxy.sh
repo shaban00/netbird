@@ -155,8 +155,20 @@ configure() {
   MANAGEMENT_ADDRESS="$MANAGEMENT_URL"
   [[ "${MANAGEMENT_URL#https://}" == *:* ]] || MANAGEMENT_ADDRESS="${MANAGEMENT_URL}:443"
 
-  PROXY_TOKEN="$(read_value NETBIRD_PROXY_TOKEN \
-    "Proxy token (on the server: netbird-server admin token create, see the top of this script)")"
+  if [[ -z "${NETBIRD_PROXY_TOKEN:-}" ]] && tty_available; then
+    cat >/dev/tty <<'EOF'
+
+Create a proxy token on the NetBird server host, in the directory of its
+docker-compose.yml (use a different --name for each proxy):
+
+  docker compose exec -T server /go/bin/netbird-server admin token create \
+    --name proxy1 --config /etc/netbird/config.yaml
+
+Paste the token from the "Token:" line (it starts with nbx_).
+
+EOF
+  fi
+  PROXY_TOKEN="$(read_value NETBIRD_PROXY_TOKEN "Proxy token")"
   [[ -n "$PROXY_TOKEN" ]] || die "A proxy token is required."
 
   PROXY_PRIVATE="$(read_yes_no NETBIRD_PROXY_PRIVATE \
