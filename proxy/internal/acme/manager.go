@@ -392,7 +392,12 @@ func (mgr *Manager) prefetchCertificate(d domain.Domain) {
 		err  error
 	}
 	acmeCh := make(chan acmeResult, 1)
-	hello := &tls.ClientHelloInfo{ServerName: name, Conn: &dummyConn{ctx: ctx}}
+	// Ask for the ECDSA certificate that browsers get. autocert keeps RSA and
+	// ECDSA certificates apart, so a bare hello (read as RSA-only) would run
+	// its own ACME order next to the first visitor's ECDSA one: two
+	// certificates per domain, and the CA hands both the same order, so the
+	// slower one fails with orderNotReady.
+	hello := ecdsaHello(ctx, name)
 	go func() {
 		cert, err := mgr.GetCertificate(hello)
 		acmeCh <- acmeResult{cert, err}
@@ -407,6 +412,14 @@ func (mgr *Manager) prefetchCertificate(d domain.Domain) {
 		case res := <-acmeCh:
 			elapsed := time.Since(start)
 			if res.err != nil {
+				// Another issuance (a visitor's handshake, another replica) may
+				// have finalized the same order. If its certificate is cached,
+				// the domain is ready; without this it stays pending forever.
+				if cert, err := mgr.readCertFromDisk(context.Background(), name); err == nil {
+					mgr.logger.Infof("prefetch certificate for domain %q failed (%v) but a certificate is cached; using it", name, res.err)
+					mgr.recordAndNotify(context.Background(), d, name, cert, 0)
+					return
+				}
 				mgr.logger.Warnf("prefetch certificate for domain %q in %s: %v", name, elapsed.String(), res.err)
 				mgr.setDomainState(d, domainFailed, res.err.Error())
 				return

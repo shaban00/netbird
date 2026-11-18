@@ -42,6 +42,9 @@ const renewalTestDomain = "renewal.example.test"
 type fakeCA struct {
 	srv    *httptest.Server
 	orders atomic.Int32
+	// onOrder, when set before the first request, runs on every new order
+	// before it is rejected.
+	onOrder func()
 }
 
 func newFakeCA(t *testing.T) *fakeCA {
@@ -73,6 +76,9 @@ func newFakeCA(t *testing.T) *fakeCA {
 	})
 	mux.HandleFunc("/order", func(w http.ResponseWriter, _ *http.Request) {
 		ca.orders.Add(1)
+		if ca.onOrder != nil {
+			ca.onOrder()
+		}
 		nonce(w)
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(http.StatusForbidden)
