@@ -110,7 +110,7 @@ configure() {
   [[ "$MANAGEMENT_URL" =~ ^https?://[^/[:space:]]+$ ]] ||
     die "Management URL must look like https://netbird.example.com (no path)."
 
-  SETUP_KEY="$(read_value NETBIRD_SETUP_KEY "Setup key for the recorder (Dashboard > Setup Keys)")"
+  SETUP_KEY="$(read_value NETBIRD_SETUP_KEY "Setup key for the recorder (dashboard: Settings > Setup Keys)")"
   [[ -n "$SETUP_KEY" ]] || die "A setup key is required."
 
   DEVICE_NAME="$(read_value NETBIRD_RECORDER_DEVICE_NAME "Device name" "netbird-recorder")"
