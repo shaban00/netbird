@@ -66,6 +66,14 @@ func anyGroupMatches(groupIDs []string, peerGroups map[string]struct{}) bool {
 	return false
 }
 
+// ruleSourceMatches reports whether a rule's source covers the peer
+func ruleSourceMatches(rule *types.PolicyRule, peerID string, peerGroups map[string]struct{}) bool {
+	if rule.SourceResource.Type == types.ResourceTypePeer && rule.SourceResource.ID != "" {
+		return rule.SourceResource.ID == peerID
+	}
+	return anyGroupMatches(rule.Sources, peerGroups)
+}
+
 // AuthorizeCloudAccess decides whether a peer may access a cloud role.
 // accountID must come from the authenticated peer, never the client, so IDs
 // from other tenants can't resolve.
@@ -112,7 +120,7 @@ func AuthorizeCloudAccess(ctx context.Context, tx store.Store, accountID, peerID
 			if rule.DestinationResource.Type != types.ResourceTypeCloudIntegration || rule.DestinationResource.ID != roleID {
 				continue
 			}
-			if !anyGroupMatches(rule.Sources, peerGroups) {
+			if !ruleSourceMatches(rule, peerID, peerGroups) {
 				continue
 			}
 
@@ -205,7 +213,7 @@ func ListAuthorizedCloudRoles(ctx context.Context, tx store.Store, accountID, pe
 			if !ok {
 				continue
 			}
-			if !anyGroupMatches(rule.Sources, peerGroups) {
+			if !ruleSourceMatches(rule, peerID, peerGroups) {
 				continue
 			}
 			passes, err := passesSourcePostureChecks(ctx, tx, accountID, policy.SourcePostureChecks, peer)

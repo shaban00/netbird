@@ -378,3 +378,66 @@ func TestListAuthorizedCloudRoles_EmptyWhenPeerNotFound(t *testing.T) {
 	require.NoError(t, err, "an unrecognized peer must read as an empty list, not an error")
 	assert.Empty(t, authorized)
 }
+
+func peerSourceRule(peerID string) *types.PolicyRule {
+	rule := allowRule()
+	rule.Sources = nil
+	rule.SourceResource = types.Resource{ID: peerID, Type: types.ResourceTypePeer}
+	return rule
+}
+
+func TestAuthorizeCloudAccess_AllowWhenSourceIsThisPeer(t *testing.T) {
+	ctrl, mockStore := setupMocks(t)
+	defer ctrl.Finish()
+
+	mockStore.EXPECT().GetPeerGroupIDs(gomock.Any(), gomock.Any(), testAccountID, testPeerID).
+		Return([]string{"some-other-group"}, nil)
+	mockStore.EXPECT().GetAccountPolicies(gomock.Any(), gomock.Any(), testAccountID).
+		Return([]*types.Policy{{ID: "policy1", Enabled: true, Rules: []*types.PolicyRule{peerSourceRule(testPeerID)}}}, nil)
+
+	decision, err := AuthorizeCloudAccess(context.Background(), mockStore, testAccountID, testPeerID, testRoleID, AccessTypeCloudIdentity)
+	require.NoError(t, err)
+	assert.True(t, decision.Allowed)
+	assert.Equal(t, testRoleID, decision.Role.RoleID)
+}
+
+func TestAuthorizeCloudAccess_DenyWhenSourceIsAnotherPeer(t *testing.T) {
+	ctrl, mockStore := setupMocks(t)
+	defer ctrl.Finish()
+
+	rule := peerSourceRule("another-peer")
+	rule.Sources = []string{testGroupID}
+	mockStore.EXPECT().GetPeerGroupIDs(gomock.Any(), gomock.Any(), testAccountID, testPeerID).
+		Return([]string{testGroupID}, nil)
+	mockStore.EXPECT().GetAccountPolicies(gomock.Any(), gomock.Any(), testAccountID).
+		Return([]*types.Policy{{ID: "policy1", Enabled: true, Rules: []*types.PolicyRule{rule}}}, nil)
+
+	decision, err := AuthorizeCloudAccess(context.Background(), mockStore, testAccountID, testPeerID, testRoleID, AccessTypeCloudIdentity)
+	require.NoError(t, err)
+	assert.False(t, decision.Allowed)
+}
+
+func TestListAuthorizedCloudRoles_IncludesRolesGrantedToThisPeer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockStore := store.NewMockStore(ctrl)
+
+	mockStore.EXPECT().GetPeerByID(gomock.Any(), gomock.Any(), testAccountID, testPeerID).
+		Return(testPeer(), nil)
+	mockStore.EXPECT().GetPeerGroupIDs(gomock.Any(), gomock.Any(), testAccountID, testPeerID).
+		Return([]string{}, nil)
+	mockStore.EXPECT().GetAccountCloudRoles(gomock.Any(), gomock.Any(), testAccountID).
+		Return([]*cloudaccesstypes.CloudRole{testRole(), testOtherRole()}, nil)
+	mockStore.EXPECT().GetAccountCloudAccess(gomock.Any(), gomock.Any(), testAccountID).
+		Return([]*cloudaccesstypes.CloudAccess{testCloudAccess()}, nil)
+
+	other := peerSourceRule("another-peer")
+	other.DestinationResource.ID = testOtherRoleID
+	mockStore.EXPECT().GetAccountPolicies(gomock.Any(), gomock.Any(), testAccountID).
+		Return([]*types.Policy{{ID: "policy1", Enabled: true, Rules: []*types.PolicyRule{peerSourceRule(testPeerID), other}}}, nil)
+
+	authorized, err := ListAuthorizedCloudRoles(context.Background(), mockStore, testAccountID, testPeerID)
+	require.NoError(t, err)
+	require.Len(t, authorized, 1)
+	assert.Equal(t, testRoleID, authorized[0].ID)
+}
